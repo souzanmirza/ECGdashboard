@@ -13,13 +13,18 @@ def savetocsv(outfileprefix, signals):
     np.savetxt(outfileprefix+'_signals', signals, fmt='%.32f')
     
 def savepatientdatamghdbtojson(comments):
-    commentsdict={}
     comment0 = comments[0]
-    comment0 = comment0.split(':')
-    for i in range(3):
-        key = comment0[i].split('<')
-        value = comment0[i + 1].split('<')
-        commentsdict[key[1].strip('<>').replace(' ', '')] = value[0].replace(' ', '')
+    commentsdict = {}
+    if comment0.find('<')==-1:
+        print('Bad header')
+        return commentsdict
+    print(comment0)
+    comment0=comment0.replace('<','*')
+    comment0 = comment0.replace('>:', '*')
+    comment0 = comment0.split('*')
+    print(comment0, len(comment0))
+    for i in [1, 3, 5]:
+        commentsdict[comment0[i]] = comment0[i+1].replace(' ', '')
     return commentsdict
 
 def metadata(outfileprefix, fields):
