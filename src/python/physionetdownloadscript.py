@@ -1,6 +1,7 @@
 import wfdb
 import csv
 import json
+import re
 import numpy as np
 
 def saverecord(savedir, recorddir, recordname):
@@ -39,8 +40,10 @@ def main():
     recordsfile = open(directory + "/RECORDS.txt", 'r')
     records = recordsfile.readlines()
     recorddir = 'mghdb'
-    for i in [0]:
-        recordname = records[i].replace('\n', '')
+    for i in range(41, len(records)):
+        record = records[i]
+        print(record)
+        recordname = record.replace('\n', '')
         saverecord(directory, recorddir, recordname)
 
 if __name__ == '__main__':
