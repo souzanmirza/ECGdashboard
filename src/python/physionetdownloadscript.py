@@ -29,7 +29,7 @@ def savepatientdatamghdbtojson(comments):
 
 def metadata(outfileprefix, fields):
     commentsdict = savepatientdatamghdbtojson(fields['comments'])
-    fields=dict((k, fields[k]) for k in fields.keys() if k!='comments')
+    fields=dict((k, fields[k]) for k in ['fs', 'n_sig', 'sig_len', 'units', 'sig_name'])
     newfields = dict(list(fields.items()) + list(commentsdict.items()))
     with open(outfileprefix + '_metadata.txt', 'w') as metadataoutfile:
         json.dump(newfields, metadataoutfile, indent=4, sort_keys=True)
