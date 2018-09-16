@@ -19,7 +19,11 @@ ECG Streams --> S3 bucket --> Kafta --> Spark Streaming --> TimeScaleDB --> Dash
 
 ## Setting up AWS account 
 peg up master.yml
+
 peg up workers.yml
+
 peg install <cluster-name> ssh
+
 peg install <cluster-name> aws
+
 peg install <cluster-name> environment
