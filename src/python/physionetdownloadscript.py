@@ -1,50 +1,67 @@
 import wfdb
-import csv
 import json
 import re
 import numpy as np
 
 def saverecord(savedir, recorddir, recordname):
-    signals, fields = wfdb.rdsamp(recordname, pb_dir=recorddir)
+    """
+    This function reads in record signals and metadata using wfdb library (developed by Physionet.com)
+    and writes them to disk as separate metadata and signal files.
+    :param savedir: directory for saving records
+    :param recorddir: directory of records on physionet.com
+    :param recordname: name of record
+    """
+    try:
+        signals, fields = wfdb.rdsamp(recordname, pb_dir=recorddir)
+    except Exception as e:
+        # if record is empty, wrong type, etc. catch here and skip record
+        print(e.message)
+        return None
     outfileprefix = savedir + '/' + recordname
-    savetocsv(outfileprefix, signals)
+    np.savetxt(outfileprefix + '_signals.txt', signals, fmt='%.32f')
     metadata(outfileprefix, fields)
-
-def savetocsv(outfileprefix, signals):
-    np.savetxt(outfileprefix+'_signals', signals, fmt='%.32f')
     
-def savepatientdatamghdbtojson(comments):
+def parsemghdbcomments(comments):
+    """
+    Parse age, sex and diagnosis from record comments
+    :param comments: comments from record fields
+    :return: comments parsed into dictionary
+    """
     comment0 = comments[0]
     commentsdict = {}
     if comment0.find('<')==-1:
+        #format of header has <> around age, sex and diagnosis fields, this checks for presence of these fields.
         print('Bad header')
         return commentsdict
-    print(comment0)
+    #string editing so can split into list
     comment0=comment0.replace('<','*')
     comment0 = comment0.replace('>:', '*')
     comment0 = comment0.split('*')
-    print(comment0, len(comment0))
-    for i in [1, 3, 5]:
+    for i in range(1,len(comment0)-1, 2):
         commentsdict[comment0[i]] = comment0[i+1].replace(' ', '')
     return commentsdict
 
 def metadata(outfileprefix, fields):
-    commentsdict = savepatientdatamghdbtojson(fields['comments'])
+    """
+    Save patient and signal metadata from record fields to disk in json format
+    :param outfileprefix: outfile name prefix
+    :param fields: record metadata
+    """
+    commentsdict = parsemghdbcomments(fields['comments'])
     fields=dict((k, fields[k]) for k in ['fs', 'n_sig', 'sig_len', 'units', 'sig_name'])
+    # combine comments dict and other metadata from record
     newfields = dict(list(fields.items()) + list(commentsdict.items()))
     with open(outfileprefix + '_metadata.txt', 'w') as metadataoutfile:
         json.dump(newfields, metadataoutfile, indent=4, sort_keys=True)
 
-def main():
+
+if __name__ == '__main__':
     directory = "/home/souzan/Documents/data/mghdb"
     recordsfile = open(directory + "/RECORDS.txt", 'r')
     records = recordsfile.readlines()
     recorddir = 'mghdb'
-    for i in range(41, len(records)):
+    for i in range(1, len(records)):
         record = records[i]
         print(record)
         recordname = record.replace('\n', '')
         saverecord(directory, recorddir, recordname)
-
-if __name__ == '__main__':
-    main()
