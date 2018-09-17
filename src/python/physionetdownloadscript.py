@@ -1,6 +1,5 @@
 import wfdb
 import json
-import re
 import numpy as np
 
 def saverecord(savedir, recorddir, recordname):
