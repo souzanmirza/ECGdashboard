@@ -7,6 +7,11 @@ These alarms are triggered very frequently leading to nursing alarm fatigue. To 
 
 ## Solution Architecture
 ECG Streams --> S3 bucket --> Kafta --> Spark Streaming --> TimeScaleDB --> Dash
+
+ECGdashboard runs a pipeline on the AWS cloud, using the following cluster configurations:
+* four m4.large EC2 instances for Kafka
+
+
 * Data storage: Timescaledb
 	* Stores time series data segments so it is easy for windowing and calculating HR for 1 minute segments.
 	* Can store waveform, HR, alarm state in same database (build on PostgreSQL)
@@ -17,13 +22,8 @@ ECG Streams --> S3 bucket --> Kafta --> Spark Streaming --> TimeScaleDB --> Dash
 * Front end: Dash
 	* Easy to build website with python
 
-## Setting up AWS account 
-peg up master.yml
+## Setting up AWS account
+Requirements: 
+* [peg]: https://github.com/InsightDataScience/pegasus
 
-peg up workers.yml
-
-peg install <cluster-name> ssh
-
-peg install <cluster-name> aws
-
-peg install <cluster-name> environment
+To setup kafka-cluster run setup/kafka_cluster.sh
