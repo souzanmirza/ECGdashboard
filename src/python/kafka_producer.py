@@ -11,7 +11,7 @@ class Producer(object):
     def __init__(self, addr):
         self.producer = KafkaProducer(bootstrap_servers=addr)
 
-    def produce_msgs(self, source_symbol):
+    def produce_msgs(self, file_key):
         """
         produces messages and sends them to topic
         """
@@ -21,12 +21,12 @@ class Producer(object):
 
             s3 = boto3.client('s3')
             obj = s3.get_object(Bucket="ecgdashboard-bucket",
-                                Key="mgh001_signals.txt")
+                                Key="%s_signals.txt"%file_key)
             for line in obj['Body'].iter_lines():
                 linesplit = line.decode().split(' ')
                 time_field = datetime.now().strftime("%Y%m%d %H%M%S")
-                str_fmt = "{},{},{} mv,{} mv,{} mv"
-                message_info = str_fmt.format(source_symbol,
+                str_fmt = "{},{},{}mv,{}mv,{}mv"
+                message_info = str_fmt.format(file_key,
                                               time_field,
                                               linesplit[0],
                                               linesplit[1],
@@ -42,8 +42,9 @@ class Producer(object):
                 time.sleep(0.001)
 
 if __name__ == "__main__":
+    print('kafka_producer called')
     args = sys.argv
     ip_addr = str(args[1])
-    partition_key = str(args[2])
+    file_key = str(args[2])
     prod = Producer(ip_addr)
-    prod.produce_msgs(partition_key)
+    prod.produce_msgs(file_key)
