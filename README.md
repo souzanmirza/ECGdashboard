@@ -24,6 +24,6 @@ ECGdashboard runs a pipeline on the AWS cloud, using the following cluster confi
 
 ## Setting up AWS account
 Requirements: 
-* [peg]: https://github.com/InsightDataScience/pegasus
+* [peg](https://github.com/InsightDataScience/pegasus)
 
 To setup kafka-cluster run setup/kafka_cluster.sh
