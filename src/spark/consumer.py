@@ -1,7 +1,7 @@
 import os
 import sys
-sys.path.append('../python/')
-import helpers
+#sys.path.append('../python/')
+#import helpers
 
 spark_config = helpers.parse_config('../../.config/spark.config')
 
@@ -19,6 +19,8 @@ if __name__ == '__main__':
     kvs = KafkaUtils.createDirectStream(ssc, [topic],{'metadata.broker.list': brokers})
     lines = kvs.map(lambda x: x[1])
     counts = lines.flatMap(lambda line: line.split(' ')).map(lambda word: (word, 1)).reduceByKey(lambda a, b: a+b)
+    #need to fix this map/reduce statement cuz I have no idea what it's doing.
+    #fix
     counts.pprint()
     ssc.start()
     ssc.awaitTermination()
