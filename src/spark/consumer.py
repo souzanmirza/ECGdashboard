@@ -20,7 +20,7 @@ if __name__ == '__main__':
     lines = kvs.map(lambda x: x[1])
     counts = lines.flatMap(lambda line: line.split(' ')).map(lambda word: (word, 1)).reduceByKey(lambda a, b: a+b)
     #need to fix this map/reduce statement cuz I have no idea what it's doing.
-    #fix
+    #need to remove logs or save them to s3 bucket
     counts.pprint()
     ssc.start()
     ssc.awaitTermination()
