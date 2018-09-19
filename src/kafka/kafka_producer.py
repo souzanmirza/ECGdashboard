@@ -5,10 +5,13 @@ import boto3
 import lazyreader
 import time
 from datetime import datetime
+sys.path.append('../python/')
+import helpers
 
 class Producer(object):
 
     def __init__(self, addr):
+        self.kafka_config = helpers.parse_config('../../.config/kafka.config')
         self.producer = KafkaProducer(bootstrap_servers=addr)
 
     def produce_msgs(self, file_key):
@@ -20,23 +23,22 @@ class Producer(object):
         while True:
 
             s3 = boto3.client('s3')
-            obj = s3.get_object(Bucket="ecgdashboard-bucket",
+            obj = s3.get_object(Bucket=self.kafka_config['bucket'],
                                 Key="%s_signals.txt"%file_key)
             for line in obj['Body'].iter_lines():
                 linesplit = line.decode().split(' ')
                 time_field = datetime.now().strftime("%Y%m%d %H%M%S")
-                str_fmt = "{},{},{}mv,{}mv,{}mv"
+                str_fmt = "{},{},{}mv"
                 message_info = str_fmt.format(file_key,
                                               time_field,
-                                              linesplit[0],
-                                              linesplit[1],
-                                              linesplit[2])
+                                              linesplit[0]
+                                              )
                 try:
                     msg = str.encode(message_info)
                 except:
                     msg = None
                 if msg is not None:
-                    self.producer.send("price_data_part4", msg)
+                    self.producer.send(self.kafka_config['topic'], msg)
                     msg_cnt += 1
                 print(message_info)
                 time.sleep(0.001)
