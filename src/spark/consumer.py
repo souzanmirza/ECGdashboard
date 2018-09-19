@@ -14,7 +14,8 @@ from pyspark.streaming.kafka import KafkaUtils
 if __name__ == '__main__':
     sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
     ssc = StreamingContext(sc, 2)
-    brokers, topic = sys.argv[1:]
+    brokers = 'ec2-52-201-50-203.compute-1.amazonaws.com:9092'
+    topic = 'ecg-topic'
     kvs = KafkaUtils.createDirectStream(ssc, [topic],{'metadata.broker.list': brokers})
     lines = kvs.map(lambda x: x[1])
     counts = lines.flatMap(lambda line: line.split(' ')).map(lambda word: (word, 1)).reduceByKey(lambda a, b: a+b)
