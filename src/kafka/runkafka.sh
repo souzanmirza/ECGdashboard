@@ -1,0 +1,1 @@
+bash spawn_kafka_streams.sh ecgdashboard-bucket FAKERECORDS.txt 52.201.50.203:9092 k1

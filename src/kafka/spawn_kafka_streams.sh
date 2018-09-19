@@ -9,7 +9,7 @@ readarray recordsarray < $RECORDLIST
 rlen=${#recordsarray[@]}
 
 tmux new-session -s $SESSION -n bash -d
-for (( i=0; i<10; i++));
+for (( i=0; i<$rlen; i++));
 do
     echo ${recordsarray[$i]}
     tmux new-window -t $((i+1))
