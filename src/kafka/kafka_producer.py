@@ -16,12 +16,12 @@ class Producer(object):
 
     def __init__(self, addr):
         self.kafka_config = helpers.parse_config('../../.config/kafka.config')
-        self.producer = KafkaProducer(value_serializer = lambda v:  v.encode('utf-8'),
-                                      bootstrap_servers=addr)
+        self.producer = KafkaProducer(bootstrap_servers=addr)
 
     def produce_msgs_buffer(self, file_key):
         msg_cnt = 0
-
+        self.producer = KafkaProducer(value_serializer=lambda v: v.encode('utf-8'),
+                                      bootstrap_servers=addr)
         while True:
 
             s3 = boto3.client('s3')
@@ -50,7 +50,9 @@ class Producer(object):
 
             s3 = boto3.client('s3')
             obj = s3.get_object(Bucket=self.kafka_config['bucket'],
-                                Key="%s_signals.txt" % file_key)
+                                Key="%s_signals.txt" %file_key)
+            #for i in range(fs):
+                #time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
             for line in obj['Body'].iter_lines():
                 linesplit = line.decode().split(' ')
                 time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -75,4 +77,4 @@ if __name__ == "__main__":
     ip_addr = str(args[1])
     file_key = str(args[2])
     prod = Producer(ip_addr)
-    prod.produce_msgs_buffer(file_key)
+    prod.produce_msgs(file_key)
