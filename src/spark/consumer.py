@@ -3,7 +3,6 @@ import sys
 #sys.path.append('../python/')
 #import helpers
 
-# spark_config = helpers.parse_config('../../.config/spark.config')
 
 #os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-streaming-kafka-0-8_2.11:2.0.2 consumer.py 52.201.50.203:9092 ecg-data'
 
@@ -16,11 +15,11 @@ if __name__ == '__main__':
     ssc = StreamingContext(sc, 2)
     brokers = 'ec2-52-201-50-203.compute-1.amazonaws.com:9092'
     topic = 'ecg-topic'
-    kvs = KafkaUtils.createDirectStream(ssc, [topic],{'metadata.broker.list': brokers})
-    lines = kvs.map(lambda x: x[1])
-    counts = lines.flatMap(lambda line: line.split(' ')).map(lambda word: (word, 1)).reduceByKey(lambda a, b: a+b)
+    kafkastream = KafkaUtils.createDirectStream(ssc, [topic],{'metadata.broker.list': brokers})
+    lines = kafkastream.map(lambda x: x[1])
+    records = lines.map(lambda line: line.encode('utf-8')).map(lambda line: line.split(','))
     #need to fix this map/reduce statement cuz I have no idea what it's doing.
     #need to remove logs or save them to s3 bucket
-    counts.pprint()
+    records.pprint()
     ssc.start()
     ssc.awaitTermination()
