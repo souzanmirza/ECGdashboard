@@ -12,5 +12,5 @@ def constantpeaks(bpm, fs, ecg =np.array([]), seconds=6):
 
 if __name__ == '__main__':
     fakeecg1 = constantpeaks(60, 360, seconds = 10)
-    fakeecg2 = constantpeaks(72, 360, seconds = 10, ecg = fakeecg1)
-    np.savetxt('../../data/fake003_signals.txt', fakeecg2, delimiter = ' ', fmt='%d')
+    fakeecg2 = constantpeaks(60, 360, seconds = 10, ecg = fakeecg1)
+    np.savetxt('../../data/fake001_signals.txt', fakeecg1, delimiter = '\n', fmt='%d')
