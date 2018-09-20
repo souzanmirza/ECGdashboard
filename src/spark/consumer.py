@@ -3,7 +3,7 @@ import sys
 #sys.path.append('../python/')
 #import helpers
 
-spark_config = helpers.parse_config('../../.config/spark.config')
+# spark_config = helpers.parse_config('../../.config/spark.config')
 
 #os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-streaming-kafka-0-8_2.11:2.0.2 consumer.py 52.201.50.203:9092 ecg-data'
 
