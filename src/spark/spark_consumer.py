@@ -13,6 +13,7 @@ from pyspark.streaming.kafka import KafkaUtils
 
 if __name__ == '__main__':
     sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
+    sc.setLogLevel("FATAL")
     ssc = StreamingContext(sc, 2)
     brokers = 'ec2-52-201-50-203.compute-1.amazonaws.com:9092'
     topic = 'ecg-topic'
