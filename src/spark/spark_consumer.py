@@ -17,10 +17,10 @@ if __name__ == '__main__':
     brokers = 'ec2-52-201-50-203.compute-1.amazonaws.com:9092'
     topic = 'ecg-topic'
     kafkastream = KafkaUtils.createDirectStream(ssc, [topic],{'metadata.broker.list': brokers})
-    lines = kafkastream.map(lambda x: x[i] for i in range(len(x)))
-    counts = lines.map(lambda line: line.split(' '))
+    lines = kafkastream.map(lambda x: x[1])
+    records = lines.map(lambda line: line.encode('utf-8')).map(lambda line: line.split(','))
     #need to fix this map/reduce statement cuz I have no idea what it's doing.
     #need to remove logs or save them to s3 bucket
-    counts.pprint()
+    records.pprint()
     ssc.start()
     ssc.awaitTermination()
