@@ -6,11 +6,10 @@ Hospital collect and process a lot of signals and are now moving towards storing
 These alarms are triggered very frequently leading to nursing alarm fatigue. To reduce the number of unnecessary alarms, the alarm theshold is dynamically changed within safe limits to reduce the number of alarms. If the alarm is still triggered when the threshold has been changed to it's maximum or minimum value, the nurse is called. Additionally, the alarms are routed to specific nurses instead of to everyone to reduce unnecessary alerts being sent to everyone.
 
 ## Solution Architecture
-														      Spark
-																^
-																|
-																v
+							     ^ Spark
+							     V 
 ECG Streams --> S3 bucket --> Kafta --> Spark Streaming --> PostgreSQL --> Dash
+						             
 
 ECGdashboard runs a pipeline on the AWS cloud, using the following cluster configurations:
 * four m4.large EC2 instances for Kafka (only master has producer threads at this moment)
