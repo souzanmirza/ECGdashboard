@@ -28,19 +28,18 @@ def filter_ecg(ecg):
     b, a = signal.cheby1(2, 1, 60.0/250, 'lowpass') # 60Hz power lines
     return signal.lfilter(b, a, ecg)
 
-def detect_R_peaks(fs, ecg):
+def detect_R_peaks(ecg):
     maxpeak=0.33*max(ecg)
     locs=detect_peaks(ecg, mph=maxpeak)
-    Rpeaks=[0]*len(locs)
-    for i in range(0,len(locs)):
-        Rpeaks[i]=([locs[i],ecg[locs[i]]])
-    return np.array(Rpeaks)
+    return locs, ecg[locs]
 
-def findHR(fs, ecg):
+def findHR(ts, ecg):
    '''detect HR using avg of R-R intervals'''
    #ecg = filter_ecg(ecg)
-   Rpeaks = detect_R_peaks(fs, ecg)
-   RR_interval=[]
-   for i in range(0,len(Rpeaks)-1):
-       RR_interval.append((Rpeaks[i+1][0]-Rpeaks[i][0])/fs)
-   return round(1/np.mean(RR_interval)), Rpeaks
+   indices, Rpeaks = detect_R_peaks(ecg)
+   Rpeaks_ts = ts[indices]
+   diff_ts = np.diff(Rpeaks_ts)
+   bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
+   bpm = bps * 60
+   #print('bpm is: ', bpm)
+   return int(bpm) #, indices, np.array([diff_ts[i].total_seconds() for i in range(len(diff_ts))])[:,np.newaxis]
