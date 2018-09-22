@@ -17,11 +17,11 @@ class Producer(object):
     def __init__(self, addr):
         self.kafka_config = helpers.parse_config('../../.config/kafka.config')
         self.producer = KafkaProducer(bootstrap_servers=addr)
+        # self.producer = KafkaProducer(value_serializer=lambda v: v.encode('utf-8'),
+        #                               bootstrap_servers=addr)
 
     def produce_msgs_buffer(self, file_key):
         msg_cnt = 0
-        self.producer = KafkaProducer(value_serializer=lambda v: v.encode('utf-8'),
-                                      bootstrap_servers=addr)
         while True:
 
             s3 = boto3.client('s3')
@@ -54,12 +54,13 @@ class Producer(object):
             #for i in range(fs):
                 #time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
             for line in obj['Body'].iter_lines():
-                linesplit = line.decode().split(' ')
-                time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
-                str_fmt = "{},{},{}mv"
+                linesplit = line.decode().split(',')
+                str_fmt = "{},{},{}mv,{}mv,{}mv"
                 message_info = str_fmt.format(file_key,
-                                              time_field,
-                                              linesplit[0]
+                                              linesplit[0],
+                                              linesplit[1],
+                                              linesplit[2],
+                                              linesplit[3]
                                               )
                 try:
                     msg = str.encode(message_info)
