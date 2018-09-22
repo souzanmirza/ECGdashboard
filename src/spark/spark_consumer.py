@@ -10,6 +10,9 @@ import sys
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
+from datetime import datetime
+from python.ECG import findHR
+import numpy as np
 
 if __name__ == '__main__':
     sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
@@ -18,13 +21,32 @@ if __name__ == '__main__':
     brokers = 'ec2-52-1-201-90.compute-1.amazonaws.com:9092'
     topic = 'ecg-topic'
     kafkastream = KafkaUtils.createDirectStream(ssc, [topic],{'metadata.broker.list': brokers})
+
+
+    def convertrecord(record):
+        convertedrecord = []
+        convertedrecord.append(datetime.strptime(record[0], '%Y-%m-%d %H:%M:%S.%f'))
+        convertedrecord.append(float(record[1].strip('mv')))
+        convertedrecord.append(float(record[2].strip('mv')))
+        convertedrecord.append(float(record[3].strip('mv')))
+        return convertedrecord
+
     lines = kafkastream.map(lambda x: x[1])
-    records = lines.map(lambda line: line.encode('utf-8')).\
+    raw_record = lines.map(lambda line: line.encode('utf-8')).\
         map(lambda line: line.split(',')).\
-        map(lambda line: (line[0], line[1:])).\
-        groupByKey().map(lambda x : (x[0], list(x[1])))
+        map(lambda line: [line[0], convertrecord(line[1:])])
+
+
+    record_interval = map(lambda line: (line[0], line[1:])).\
+         groupByKey().map(lambda x : (x[0], list(x[1])))
+
+
+    HR = record_interval.map(findHR(np.array(record_interval[1])[1], np.array(record_interval[1])[2]))
+
+
     #need to fix this map/reduce statement cuz I have no idea what it's doing.
     #need to remove logs or save them to s3 bucket
-    records.pprint()
+    raw_record.pprint()
+    HR.pprint()
     ssc.start()
     ssc.awaitTermination()
