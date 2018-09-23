@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.append('../python/')
-#import helpers
+import helpers
 
 #spark_config = helpers.parse_config('../../.config/spark.config')
 
@@ -13,6 +13,7 @@ from pyspark.streaming.kafka import KafkaUtils
 from datetime import datetime
 from detect_peaks import detect_peaks
 import numpy as np
+import psycopg2
 
 def findHR(ts, ecg):
    '''detect HR using avg of R-R intervals'''
@@ -61,6 +62,11 @@ def _calculateHR(x):
     else:
         return None
 
+def insert(cur, conn, record):
+    sqlcmd="INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
+           "VALUES (%s, %s, %s, %s, %s)"
+    cur.execute(sqlcmd,record)
+    conn.commit()
 
 def calculateHR(rdd):
     HR=[]
@@ -71,15 +77,20 @@ if __name__ == '__main__':
     sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
     sc.setLogLevel("FATAL")
     ssc = StreamingContext(sc, 5)
-    brokers = 'ec2-52-1-201-90.compute-1.amazonaws.com:9092'
-    topic = 'ecg-topic'
-    kafkastream = KafkaUtils.createDirectStream(ssc, [topic],{'metadata.broker.list': brokers})
+    kafka_config = helpers('../../.config/spark.config')
+    postgres_config = helpers.parse_config('../../.config/postgres.config')
+    conn = psycopg2.connect(host=postgres_config['host'], database=postgres_config['host'], port=postgres_config['port'],
+                            user=postgres_config['user'], password=postgres_config['password'])
+    cur = conn.cursor()
+    kafkastream = KafkaUtils.createDirectStream(ssc, [kafka_config['topic']],{'metadata.broker.list': kafka_config['ip-addr']})
 
     lines = kafkastream.map(lambda x: x[1])
     raw_record = lines.map(lambda line: line.encode('utf-8')).\
         map(lambda line: line.split(','))
 
-    converted_record = raw_record.map(lambda line: [line[0], convertrecord(line[1:])])
+    insert(cur, conn, raw_record)
+
+    #converted_record = raw_record.map(lambda line: [line[0], convertrecord(line[1:])])
 
     record_interval = raw_record.map(lambda line: (line[0], line[1:])).\
          groupByKey().map(lambda x : (x[0], np.array(list(x[1]))))
