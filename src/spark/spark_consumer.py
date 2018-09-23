@@ -1,6 +1,6 @@
 import os
 import sys
-#sys.path.append('../python/')
+sys.path.append('../python/')
 #import helpers
 
 #spark_config = helpers.parse_config('../../.config/spark.config')
@@ -11,7 +11,7 @@ from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
 from datetime import datetime
-from python.ECG import findHR
+from ECG import findHR
 import numpy as np
 
 if __name__ == '__main__':
@@ -33,20 +33,40 @@ if __name__ == '__main__':
 
     lines = kafkastream.map(lambda x: x[1])
     raw_record = lines.map(lambda line: line.encode('utf-8')).\
-        map(lambda line: line.split(',')).\
-        map(lambda line: [line[0], convertrecord(line[1:])])
+        map(lambda line: line.split(','))
+
+    converted_record = raw_record.map(lambda line: [line[0], convertrecord(line[1:])])
+
+    record_interval = raw_record.map(lambda line: (line[0], line[1:])).\
+         groupByKey().map(lambda x : (x[0], np.array(list(x[1]))))
 
 
-    record_interval = map(lambda line: (line[0], line[1:])).\
-         groupByKey().map(lambda x : (x[0], list(x[1])))
-
-
-    HR = record_interval.map(findHR(np.array(record_interval[1])[1], np.array(record_interval[1])[2]))
+    def calculateHR(rdd_):
+        HR = []
+        for key in rdd_.keys().collect():
+	    x=rdd_.lookup(key)
+            ts_str = x[0][:,0]
+            #print(ts_str)
+            if len(ts_str) > 3:
+	        print('passed: ', ts_str.shape)
+                ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
+                ts_datetime = np.array(ts_datetime)
+                ecg1 = np.array(x[0][:,1]).astype(float)
+                print(ecg1)
+                ecg2 = np.array(x[0][:, 2]).astype(float)
+                ecg3 = np.array(x[0][:, 3]).astype(float)
+		sampleHR = [key, findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2),findHR(ts_datetime, ecg3)]                
+		print(sampleHR)
+                HR.append(sampleHR)
+        return HR
+    
+    HR = record_interval.foreachRDD(calculateHR)
 
 
     #need to fix this map/reduce statement cuz I have no idea what it's doing.
     #need to remove logs or save them to s3 bucket
-    raw_record.pprint()
-    HR.pprint()
+    #converted_record.pprint()
+    #record_interval.pprint()
     ssc.start()
+    print(HR)
     ssc.awaitTermination()

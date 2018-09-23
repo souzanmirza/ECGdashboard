@@ -37,9 +37,11 @@ def findHR(ts, ecg):
    '''detect HR using avg of R-R intervals'''
    #ecg = filter_ecg(ecg)
    indices, Rpeaks = detect_R_peaks(ecg)
-   Rpeaks_ts = ts[indices]
-   diff_ts = np.diff(Rpeaks_ts)
-   bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
-   bpm = bps * 60
-   #print('bpm is: ', bpm)
-   return int(bpm) #, indices, np.array([diff_ts[i].total_seconds() for i in range(len(diff_ts))])[:,np.newaxis]
+   if indices > 1:
+       Rpeaks_ts = ts[indices]
+       diff_ts = np.diff(Rpeaks_ts)
+       bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
+       bpm = bps * 60
+       return int(bpm) 
+   else:
+       return None
