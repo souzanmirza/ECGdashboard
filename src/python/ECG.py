@@ -33,7 +33,7 @@ def detect_R_peaks(ecg):
     locs=detect_peaks(ecg, mph=maxpeak)
     return locs, ecg[locs]
 
-def findHR(ts, ecg):
+def findInstantaneousHR(ts, ecg):
    '''detect HR using avg of R-R intervals'''
    #ecg = filter_ecg(ecg)
    indices, Rpeaks = detect_R_peaks(ecg)
@@ -43,5 +43,17 @@ def findHR(ts, ecg):
        bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
        bpm = bps * 60
        return int(bpm) 
+   else:
+       return None
+
+def findHR(ts, ecg):
+   '''detect HR using avg of R-R intervals'''
+   #ecg = filter_ecg(ecg)
+   indices, Rpeaks = detect_R_peaks(ecg)
+   if indices > 1:
+       Rpeaks_ts = ts[indices]
+       bps = len(Rpeaks_ts) / (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds()
+       bpm = bps * 60
+       return int(bpm)
    else:
        return None
