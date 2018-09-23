@@ -55,7 +55,7 @@ class Producer(object):
                 #time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
             for line in obj['Body'].iter_lines():
                 linesplit = line.decode().split(',')
-                str_fmt = "{},{},{}mv,{}mv,{}mv"
+                str_fmt = "{},{},{},{},{}"
                 message_info = str_fmt.format(file_key,
                                               linesplit[0],
                                               linesplit[1],
