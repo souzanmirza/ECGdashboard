@@ -1,7 +1,6 @@
 import os
 import sys
 sys.path.append('../python/')
-import helpers
 
 #spark_config = helpers.parse_config('../../.config/spark.config')
 
@@ -14,6 +13,7 @@ from datetime import datetime
 from detect_peaks import detect_peaks
 import numpy as np
 import psycopg2
+import helpers
 
 def findHR(ts, ecg):
    '''detect HR using avg of R-R intervals'''
@@ -77,9 +77,10 @@ if __name__ == '__main__':
     sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
     sc.setLogLevel("FATAL")
     ssc = StreamingContext(sc, 5)
-    kafka_config = helpers('../../.config/spark.config')
+    kafka_config = helpers.parse_config('../../.config/spark.config')
     postgres_config = helpers.parse_config('../../.config/postgres.config')
-    conn = psycopg2.connect(host=postgres_config['host'], database=postgres_config['host'], port=postgres_config['port'],
+    print(postgres_config)
+    conn = psycopg2.connect(host=postgres_config['host'], database=postgres_config['database'], port=postgres_config['port'],
                             user=postgres_config['user'], password=postgres_config['password'])
     cur = conn.cursor()
     kafkastream = KafkaUtils.createDirectStream(ssc, [kafka_config['topic']],{'metadata.broker.list': kafka_config['ip-addr']})
