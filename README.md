@@ -33,4 +33,4 @@ Requirements:
 Setup
 * To setup kafka-cluster run setup/kafka_cluster.sh. On master node, start topic using src/kafka/maketopics.sh
 * To setup spark-cluster run setup/spark_hadoop.sh. On master node, start spark job using runspark.sh
-* To setup postgreSQL node run setup/postgresmaster.yml. Instructions to come...
+* To setup postgreSQL node run setup/postgresmaster.yml. Follow instructions on setup/db_setup.txt
