@@ -19,7 +19,7 @@ import logging
 
 
 def findHR(ts, ecg):
-    logging.info('fxn findHR')
+    logger.info('fxn findHR')
     '''detect HR using avg of R-R intervals'''
     # ecg = filter_ecg(ecg)
     maxpeak = 0.33 * max(ecg)
@@ -33,18 +33,19 @@ def findHR(ts, ecg):
             if bpm > 0:
                 return int(bpm)
             else:
-                logging.debug('No HR returned')
+                logger.debug('No HR returned')
                 return None
         else:
-            logging.debug('No HR returned')
+            logger.debug('No HR returned')
             return None
     else:
-        logging.debug('No HR returned')
+        logger.debug('No HR returned')
         return None
 
 
 def _calculateHR(x):
-    logging.info('fxn _calculateHR')
+    print('fxn _calculateHR')
+    logger.info('fxn _calculateHR')
     # for key in rdd_.keys().collect():
     #     x = rdd_.lookup(key)
     ts_str = x[1][:, 0]
@@ -61,11 +62,11 @@ def _calculateHR(x):
         print(sampleHR)
         return sampleHR
     else:
-        logging.debug('No HR returned')
+        logger.debug('No HR returned')
         return None
 
 def get_connection(connpool):
-    logging.info('fxn get_connection')
+    logger.info('fxn get_connection')
     conn = connpool.getconn()
     try:
         yield conn
@@ -73,68 +74,74 @@ def get_connection(connpool):
         connpool.putconn(conn)
 
 def _insert(connpool, x):
-    logging.info('fxn _insert')
+    print('fxn _insert ')
+    logger.info('fxn _insert')
     sqlcmd = "INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
                      "VALUES (%s, %s, %s, %s, %s)"
     for conn in get_connection(connpool).__iter__():
-        print(conn)
+        #print(conn)
         try:
             cur = conn.cursor()
             cur.execute(sqlcmd, x)
             cur.close()
             conn.commit()
         except Exception as e:
-            logging.debug('Exception %s, rolling back'%e)
+            logger.debug('Exception %s, rolling back'%e)
             conn.rollback()
 
 def insert(connpool, record):
-    logging.info('fxn insert')
+    #print('fxn insert ', logger)
+    logger.info('fxn insert')
     record.foreach(lambda x: _insert(connpool, x))
 
 
 def calculateHR(rdd):
-    logging.debug('fxn calculateHR')
+    logger.info('fxn calculateHR')
     HR = []
     HR.append(rdd.foreach(_calculateHR))
     print('calculateHR result is: ', HR)
 
 
 if __name__ == '__main__':
+    global logger
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(message)s',
                         filename='./tmp/spark_consumer.log',
                         filemode='w')
-    sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
-    sc.setLogLevel("FATAL")
-    ssc = StreamingContext(sc, 5)
-    logging.info('Opened spark Context')
-
+    logger = logging.getLogger('py4j')
+    logger.setLevel(logging.INFO)
     kafka_config = helpers.parse_config('../../.config/spark.config')
     postgres_config = helpers.parse_config('../../.config/postgres.config')
     # print(postgres_config)
+    sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
+    sc.setLogLevel("FATAL")
+    ssc = StreamingContext(sc, 5)
+    logger.info('Opened spark Context')
     connpool = pool.SimpleConnectionPool(1, 10, host=postgres_config['host'],
                                                   database=postgres_config['database'], port=postgres_config['port'],
                                                   user=postgres_config['user'], password=postgres_config['password'])
-    logging.info('Created db pooled connections')
+    logger.info('Created db pooled connections')
 
     kafkastream = KafkaUtils.createDirectStream(ssc, [kafka_config['topic']],
                                                 {'metadata.broker.list': kafka_config['ip-addr']})
-    logging.info('Connected kafka stream to spark context')
+    logger.info('Connected kafka stream to spark context')
 
     lines = kafkastream.map(lambda x: x[1])
-    logging.info('Reading in kafka stream line')
+    logger.info('Reading in kafka stream line')
 
     raw_record = lines.map(lambda line: line.encode('utf-8')). \
         map(lambda line: line.split(','))
     raw_record.foreachRDD(lambda x: insert(connpool, x))
-    logging.info('Saved records to db')
+    logger.info('Saved records to db')
 
-    record_interval = raw_record.groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
+    record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
+        groupByKey(). \
+        map(lambda x: (x[0], np.array(list(x[1]))))
 
     record_interval.foreachRDD(calculateHR)
-    logging.info('Calculated HR for 2s spark stream mini-batch')
+    logger.info('Calculated HR for 2s spark stream mini-batch')
 
     ssc.start()
-    logging.info('Spark context started')
+    logger.info('Spark context started')
     ssc.awaitTermination()
-    logging.info('Spark context terminated')
+    logger.info('Spark context terminated')
