@@ -1,0 +1,26 @@
+peg fetch database
+
+peg ssh database 1
+
+sudo apt-get update
+sudo apt-get install postgresql postgresql-contrib
+
+sudo -u postgres createuser --interactive
+
+[ecg]
+[y]
+
+sudo -u postgres createdb ecg
+
+sudo adduser ecg
+
+sudo -i -u ecg
+psql
+
+CREATE TABLE signal_samples (
+    signame varchar(50) NOT NULL,
+    time timestamp PRIMARY KEY,
+    ecg1 float(1) NOT NULL,
+    ecg2 float(1) NOT NULL,
+    ecg3 float(1) NOT NULL,
+);
