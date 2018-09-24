@@ -62,11 +62,15 @@ def _calculateHR(x):
     else:
         return None
 
-def insert(cur, conn, record):
-    sqlcmd="INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
-           "VALUES (%s, %s, %s, %s, %s)"
-    cur.execute(sqlcmd,record)
+def _insert(x, cur, conn):
+    sqlcmd = "INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
+             "VALUES (%s, %s, %s, %s, %s)"
+    cur.execute(sqlcmd, x)
     conn.commit()
+
+
+def insert(record, cur, conn):
+    record.foreach(_insert(cur, conn))
 
 def calculateHR(rdd):
     HR=[]
@@ -89,7 +93,7 @@ if __name__ == '__main__':
     raw_record = lines.map(lambda line: line.encode('utf-8')).\
         map(lambda line: line.split(','))
 
-    insert(cur, conn, raw_record)
+    raw_record.foreachRDD(insert(cur, conn))
 
     #converted_record = raw_record.map(lambda line: [line[0], convertrecord(line[1:])])
 
