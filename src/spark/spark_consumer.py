@@ -10,7 +10,7 @@ from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
 from datetime import datetime
-from detect_peaks import detect_peaks
+import detect_peaks
 import numpy as np
 import psycopg2
 import helpers
@@ -20,7 +20,7 @@ def findHR(ts, ecg):
    #ecg = filter_ecg(ecg)
    maxpeak = 0.33 * max(ecg)
    if maxpeak > 0:
-       locs = detect_peaks(ecg, mph=maxpeak)
+       locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
        if len(locs) > 1:
            Rpeaks_ts = ts[locs]
            diff_ts = np.diff(Rpeaks_ts)
@@ -62,15 +62,31 @@ def _calculateHR(x):
     else:
         return None
 
-def _insert(x, cur, conn):
-    sqlcmd = "INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
-             "VALUES (%s, %s, %s, %s, %s)"
-    cur.execute(sqlcmd, x)
-    conn.commit()
+def get_connection(connpool):
+    conn = connpool.getconn()
+    try:
+        yield conn
+    finally:
+        connpool.putconn(conn)
 
+def _insert(connpool, x):
+    print('fxn _insert')
+    with get_connection() as conn:   
+	try:       
+       		cur = conn.cursor()	    
+       		con.cur.execute('SELECT version()')
+       		db_version = cur.fetchone()
+       		print(db_version)
+       		sqlcmd = "INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
+             		"VALUES (%s, %s, %s, %s, %s)"
+        	cur.execute(sqlcmd, x)
+    		conn.commit()
+	except:
+		conn.rollback()
 
-def insert(record, cur, conn):
-    record.foreach(_insert(cur, conn))
+def insert(connpool, record):
+    print('fxn insert')
+    record.foreach(lambda x: _insert(cur, conn, x))
 
 def calculateHR(rdd):
     HR=[]
@@ -83,17 +99,17 @@ if __name__ == '__main__':
     ssc = StreamingContext(sc, 5)
     kafka_config = helpers.parse_config('../../.config/spark.config')
     postgres_config = helpers.parse_config('../../.config/postgres.config')
-    print(postgres_config)
-    conn = psycopg2.connect(host=postgres_config['host'], database=postgres_config['database'], port=postgres_config['port'],
+    #print(postgres_config)
+    connpool = psycopg2.pool.SimpleConnectionPool(1, 10, host=postgres_config['host'], database=postgres_config['database'], port=postgres_config['port'],
                             user=postgres_config['user'], password=postgres_config['password'])
-    cur = conn.cursor()
+   
     kafkastream = KafkaUtils.createDirectStream(ssc, [kafka_config['topic']],{'metadata.broker.list': kafka_config['ip-addr']})
 
     lines = kafkastream.map(lambda x: x[1])
     raw_record = lines.map(lambda line: line.encode('utf-8')).\
         map(lambda line: line.split(','))
 
-    raw_record.foreachRDD(insert(cur, conn))
+    raw_record.foreachRDD(lambda x: insert(connpool, x))
 
     #converted_record = raw_record.map(lambda line: [line[0], convertrecord(line[1:])])
 
