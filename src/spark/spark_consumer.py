@@ -66,7 +66,6 @@ def _calculateHR(x):
     else:
         return None
 
-
 def get_connection(connpool):
     conn = connpool.getconn()
     try:
@@ -74,26 +73,24 @@ def get_connection(connpool):
     finally:
         connpool.putconn(conn)
 
-
 def _insert(connpool, x):
     print('fxn _insert')
-    with get_connection() as conn:
+    sqlcmd = "INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
+                     "VALUES (%s, %s, %s, %s, %s)"
+    for conn in get_connection(connpool).__iter__():
+        print(conn)
         try:
             cur = conn.cursor()
-            conn.cur.execute('SELECT version()')
-            db_version = cur.fetchone()
-            print(db_version)
-            sqlcmd = "INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
-                     "VALUES (%s, %s, %s, %s, %s)"
             cur.execute(sqlcmd, x)
+            cur.close()
             conn.commit()
-        except:
+        except Exception as e:
+            print('Exception %s, rolling back'%e)
             conn.rollback()
-
 
 def insert(connpool, record):
     print('fxn insert')
-    record.foreach(lambda x: _insert(cur, conn, x))
+    record.foreach(lambda x: _insert(connpool, x))
 
 
 def calculateHR(rdd):
@@ -121,17 +118,9 @@ if __name__ == '__main__':
         map(lambda line: line.split(','))
 
     raw_record.foreachRDD(lambda x: insert(connpool, x))
-
-    # converted_record = raw_record.map(lambda line: [line[0], convertrecord(line[1:])])
-
-    record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
         groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
 
     record_interval.foreachRDD(calculateHR)
 
-    # need to fix this map/reduce statement cuz I have no idea what it's doing.
-    # need to remove logs or save them to s3 bucket
-    # converted_record.pprint()
-    # record_interval.pprint()
     ssc.start()
     ssc.awaitTermination()
