@@ -101,15 +101,13 @@ class SparkConsumer:
 
 
     def calculateHR(self, record):
+        print('fxn calculateHR')
         self.logger.info('fxn calculateHR')
         a = self.a.value
         def _calculateHR(x):
             print('fxn _calculateHR')
             #self.logger.info('fxn _calculateHR')
-            # for key in rdd_.keys().collect():
-            #     x = rdd_.lookup(key)
             ts_str = x[1][:, 0]
-            # print(ts_str)
             if len(ts_str) > 3:
                 # print('passed: ', ts_str.shape)
                 ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
@@ -143,7 +141,7 @@ class SparkConsumer:
 
             else:
                 self.logger.debug('No HR returned')
-
+        print('record ', record, type(record))
         record.foreach(_calculateHR)
 
 
