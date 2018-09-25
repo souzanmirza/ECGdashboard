@@ -135,6 +135,7 @@ class SparkConsumer:
         self.logger.info('Opened spark Context')
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
+        self.setupDB()
 
     def start(self):
         self.ssc.start()
@@ -147,6 +148,32 @@ class SparkConsumer:
                                                     {'metadata.broker.list': self.spark_config['ip-addr']})
         self.logger.info('Connected kafka stream to spark context')
         return kafkastream
+
+    def setupDB(self):
+        conn = psycopg2.connect(host=self.postgres_config['host'],
+                                database=self.postgres_config['database'],
+                                port=self.postgres_config['port'],
+                                user=self.postgres_config['user'],
+                                password=self.postgres_config['password'])
+        cur = conn.cursor()
+        cur.execute("CREATE TABLE IF NOT EXISTS signal_samples (id serial PRIMARY KEY,\
+                                                                batchnum int NOT NULL, \
+                                                                signame varchar(50) NOT NULL, \
+                                                                time timestamp NOT NULL, \
+                                                                ecg1 float(1) NOT NULL, \
+                                                                ecg2 float(1) NOT NULL, \
+                                                                ecg3 float(1) NOT NULL);")
+        cur.execute("CREATE INDEX IF NOT EXISTS signal_samples_idx ON signal_samples (signame, time);")
+        cur.execute("CREATE TABLE inst_hr (id serial PRIMARY KEY, \
+                                            batchnum int NOT NULL, \
+                                            signame varchar(50) NOT NULL, \
+                                            hr1 float(1) NOT NULL, \
+                                            hr2 float(1) NOT NULL, \
+                                            hr3 float(1) NOT NULL);")
+        cur.execute("CREATE INDEX IF NOT EXISTS inst_hr_idx ON inst_hr (batchnum, signame);")
+        conn.commit()
+        cur.close()
+        conn.close()
 
     def run(self):
         lines = self.kafkastream.map(lambda x: x[1])
