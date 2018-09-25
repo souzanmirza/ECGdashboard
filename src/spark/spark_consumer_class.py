@@ -23,6 +23,30 @@ def accum(a):
     a.add(1)
     return a.value
 
+def findHR(ts, ecg):
+    #self.logger.info('fxn findHR')
+    '''detect HR using avg of R-R intervals'''
+    # ecg = filter_ecg(ecg)
+    maxpeak = 0.33 * max(ecg)
+    if maxpeak > 0:
+        locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
+        if len(locs) > 1:
+            Rpeaks_ts = ts[locs]
+            diff_ts = np.diff(Rpeaks_ts)
+            bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
+            bpm = bps * 60
+            if bpm > 0:
+                return int(bpm)
+            else:
+                #self.logger.debug('Invalid HR returned')
+                return -1
+        else:
+            #self.logger.debug('Invalid HR returned')
+            return -1
+    else:
+        #self.logger.debug('Invalid HR returned')
+        return -1
+
 
 class SparkConsumer:
 
@@ -73,37 +97,12 @@ class SparkConsumer:
         self.ssc.awaitTermination()
         self.logger.info('Spark context terminated')
 
-
-
-    def findHR(self, ts, ecg):
-        self.logger.info('fxn findHR')
-        '''detect HR using avg of R-R intervals'''
-        # ecg = filter_ecg(ecg)
-        maxpeak = 0.33 * max(ecg)
-        if maxpeak > 0:
-            locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
-            if len(locs) > 1:
-                Rpeaks_ts = ts[locs]
-                diff_ts = np.diff(Rpeaks_ts)
-                bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
-                bpm = bps * 60
-                if bpm > 0:
-                    return int(bpm)
-                else:
-                    self.logger.debug('Invalid HR returned')
-                    return -1
-            else:
-                self.logger.debug('Invalid HR returned')
-                return -1
-        else:
-            self.logger.debug('Invalid HR returned')
-            return -1
-
-
     def calculateHR(self, record):
         print('fxn calculateHR')
         self.logger.info('fxn calculateHR')
         a = self.a.value
+        postgres_config = self.postgres_config
+
         def _calculateHR(x):
             print('fxn _calculateHR')
             #self.logger.info('fxn _calculateHR')
@@ -116,18 +115,18 @@ class SparkConsumer:
                 # print(ecg1)
                 ecg2 = np.array(x[1][:, 2]).astype(float)
                 ecg3 = np.array(x[1][:, 3]).astype(float)
-                sampleHR = [a, x[0], self.findHR(ts_datetime, ecg1), self.findHR(ts_datetime, ecg2), self.findHR(ts_datetime, ecg3)]
+                sampleHR = [a, x[0], findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
 
                 def insert_inst_hr(x):
                     sqlcmd = "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
                              "VALUES (%s, %s, %s, %s, %s)"
                     print('in fx _insert_inst_hr %s' % sqlcmd)
                     try:
-                        conn = psycopg2.connect(host=self.postgres_config['host'],
-                                                database=self.postgres_config['database'],
-                                                port=self.postgres_config['port'],
-                                                user=self.postgres_config['user'],
-                                                password=self.postgres_config['password'])
+                        conn = psycopg2.connect(host=postgres_config['host'],
+                                                database=postgres_config['database'],
+                                                port=postgres_config['port'],
+                                                user=postgres_config['user'],
+                                                password=postgres_config['password'])
                         cur = conn.cursor()
                         cur.execute(sqlcmd, x)
                         conn.commit()
