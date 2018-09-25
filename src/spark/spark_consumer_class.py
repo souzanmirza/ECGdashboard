@@ -70,9 +70,8 @@ class SparkConsumer:
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
 
-        record_interval.foreachRDD(lambda x: self.calculateHR(self.a.value, x))
+        record_interval.foreachRDD(self.calculateHR)
         self.logger.info('Calculated HR for 2s spark stream mini-batch')
-
 
     def findHR(self, ts, ecg):
         self.logger.info('fxn findHR')
@@ -98,49 +97,50 @@ class SparkConsumer:
             self.logger.debug('Invalid HR returned')
             return -1
 
-    def calculateHR(self, a, record):
+    def _calculateHR(self, x):
+        print('fxn _calculateHR')
+        self.logger.info('fxn _calculateHR')
+        # for key in rdd_.keys().collect():
+        #     x = rdd_.lookup(key)
+        ts_str = x[1][:, 0]
+        # print(ts_str)
+        if len(ts_str) > 3:
+            # print('passed: ', ts_str.shape)
+            ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
+            ts_datetime = np.array(ts_datetime)
+            ecg1 = np.array(x[1][:, 1]).astype(float)
+            # print(ecg1)
+            ecg2 = np.array(x[1][:, 2]).astype(float)
+            ecg3 = np.array(x[1][:, 3]).astype(float)
+            sampleHR = [self.a.value, x[0], self.findHR(ts_datetime, ecg1), self.findHR(ts_datetime, ecg2), self.findHR(ts_datetime, ecg3)]
+            self.insert_inst_hr(sampleHR)
+        else:
+            self.logger.debug('No HR returned')
+
+
+    def calculateHR(self, record):
         self.logger.info('fxn calculateHR')
+        record.foreach(self._calculateHR)
+
+
+    def insert_inst_hr(self, x):
         sqlcmd = "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
-                 "VALUES (" + str(a) + ", %s, %s, %s, %s) " \
-                                       "ON CONFLICT DO NOTHING"
-        postgres_config = self.postgres_config
-
-        def _calculateHR(x):
-            #print('fxn _calculateHR')
-            #self.logger.info('fxn _calculateHR')
-            ts_str = x[1][:, 0]
-            if len(ts_str) > 3:
-                ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
-                ts_datetime = np.array(ts_datetime)
-                ecg1 = np.array(x[1][:, 1]).astype(float)
-                ecg2 = np.array(x[1][:, 2]).astype(float)
-                ecg3 = np.array(x[1][:, 3]).astype(float)
-                instHR = [x[0], self.findHR(ts_datetime, ecg1), self.findHR(ts_datetime, ecg2),
-                            self.findHR(ts_datetime, ecg3)]
-                print(instHR)
-
-                def _insert_inst_hr(x):
-                    print('in fx _insert_inst_hr %s'%sqlcmd)
-                    try:
-                        conn = psycopg2.connect(host=postgres_config['host'],
-                                                database=postgres_config['database'],
-                                                port=postgres_config['port'],
-                                                user=postgres_config['user'],
-                                                password=postgres_config['password'])
-                        cur = conn.cursor()
-                        cur.executemany(sqlcmd, list(x))
-                        conn.commit()
-                        cur.close()
-                        conn.close()
-                    except Exception as e:
-                        # self.logger.debug('Exception %s' % e)
-                        print('Exception %s' % e)
-
-                _insert_inst_hr(instHR)
-            else:
-                self.logger.debug('No HR returned')
-
-        record.foreachPartition(_calculateHR)
+                 "VALUES (%s, %s, %s, %s, %s)"
+        print('in fx _insert_inst_hr %s' % sqlcmd)
+        try:
+            conn = psycopg2.connect(host=self.postgres_config['host'],
+                                    database=self.postgres_config['database'],
+                                    port=self.postgres_config['port'],
+                                    user=self.postgres_config['user'],
+                                    password=self.postgres_config['password'])
+            cur = conn.cursor()
+            cur.execute(sqlcmd, x)
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            # self.logger.debug('Exception %s' % e)
+            print('Exception %s' % e)
 
     def insert_sample(self, a, record):
         # print('fxn insert ', logger)
