@@ -43,9 +43,11 @@ def findHR(ts, ecg):
         return None
 
 
-def _calculateHR(x):
+def _calculateHR(connpool, a, x):
     print('fxn _calculateHR')
     logger.info('fxn _calculateHR')
+    sqlcmd =  "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
+             "VALUES (%s, %s, %s, %s, %s)"
     # for key in rdd_.keys().collect():
     #     x = rdd_.lookup(key)
     ts_str = x[1][:, 0]
@@ -60,10 +62,15 @@ def _calculateHR(x):
         ecg3 = np.array(x[1][:, 3]).astype(float)
         sampleHR = [x[0], findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
         print(sampleHR)
-        return sampleHR
+        _insert(connpool, sqlcmd, a, sampleHR)
     else:
         logger.debug('No HR returned')
-        return None
+
+
+def calculateHR(connpool, a, record):
+    logger.info('fxn calculateHR')
+    record.foreach(lambda x: _calculateHR(connpool, a, x))
+
 
 def get_connection(connpool):
     logger.info('fxn get_connection')
@@ -73,12 +80,10 @@ def get_connection(connpool):
     finally:
         connpool.putconn(conn)
 
-def _insert(a, connpool, x):
+def _insert(connpool, sqlcmd, a, x):
     #print(x)
     print('fxn _insert ')
     logger.info('fxn _insert')
-    sqlcmd = "INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) " \
-                     "VALUES (%s, %s, %s, %s, %s, %s)"
     for conn in get_connection(connpool).__iter__():
         #print(conn)
         try:
@@ -91,19 +96,13 @@ def _insert(a, connpool, x):
             print('Exception %s, rolling back'%e)
             conn.rollback()
 
-def insert(a, connpool, record):
+def insert(connpool, a, record):
     #print('fxn insert ', logger)
     print('accum in insert %s'%a)
     logger.info('fxn insert')
-    record.foreach(lambda x: _insert(a, connpool, x))
-
-
-def calculateHR(rdd):
-    logger.info('fxn calculateHR')
-    HR = []
-    HR.append(rdd.foreach(_calculateHR))
-    print('calculateHR result is: ', HR)
-
+    sqlcmd = "INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) " \
+             "VALUES (%s, %s, %s, %s, %s, %s)"
+    record.foreach(lambda x: _insert(connpool, sqlcmd, a, x))
 
 if __name__ == '__main__':
     global logger
@@ -139,17 +138,17 @@ if __name__ == '__main__':
     
     raw_record = lines.map(lambda line: line.encode('utf-8')). \
         map(lambda line: line.split(','))
-    raw_record.foreachRDD(lambda x: (insert(accum(), connpool, x)))
+    raw_record.foreachRDD(lambda x: (insert(connpool, accum(), x)))
     raw_record.pprint()
     logger.info('Saved records to db')
-    '''
+
     record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
         groupByKey(). \
         map(lambda x: (x[0], np.array(list(x[1]))))
 
-    record_interval.foreachRDD(calculateHR)
+    record_interval.foreachRDD(lambda x: calculateHR(connpool, a, x))
     logger.info('Calculated HR for 2s spark stream mini-batch')
-    '''
+
     ssc.start()
     logger.info('Spark context started')
     ssc.awaitTermination()
