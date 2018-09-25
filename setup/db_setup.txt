@@ -1,33 +1,4 @@
-peg fetch database
-
-peg ssh database 1
-
-sudo apt-get update
-sudo apt-get install postgresql postgresql-contrib
-
-sudo -u postgres createuser --interactive
-
-[ecg]
-[y]
-
-sudo -u postgres createdb ecg
-
-sudo adduser ecg
-
-sudo -i -u ecg
-psql
-
-CREATE TABLE signal_samples (
-    batchnum int NOT NULL,
-    signame varchar(50) NOT NULL,
-    time timestamp PRIMARY KEY,
-    ecg1 float(1) NOT NULL,
-    ecg2 float(1) NOT NULL,
-    ecg3 float(1) NOT NULL);
-
-CREATE TABLE inst_hr (
-    batchnum int PRIMARY KEY,
-    signame varchar(50) NOT NULL,
-    hr1 float(1) NOT NULL,
-    hr2 float(1) NOT NULL,
-    hr3 float(1) NOT NULL);
+Create DB using RDS instance.
+Assure 2 subnets created.
+Choose free features
+Choose PostgreSQL database.
