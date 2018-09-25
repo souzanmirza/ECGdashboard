@@ -47,6 +47,76 @@ def findHR(ts, ecg):
         #self.logger.debug('Invalid HR returned')
         return -1
 
+def calculateHR(postgres_config, a, record):
+    print('fxn calculateHR')
+    #self.logger.info('fxn calculateHR')
+    #a = self.a.value
+    #postgres_config = self.postgres_config
+
+    def _calculateHR(x):
+        print('fxn _calculateHR')
+        #self.logger.info('fxn _calculateHR')
+        ts_str = x[1][:, 0]
+        if len(ts_str) > 3:
+            # print('passed: ', ts_str.shape)
+            ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
+            ts_datetime = np.array(ts_datetime)
+            ecg1 = np.array(x[1][:, 1]).astype(float)
+            # print(ecg1)
+            ecg2 = np.array(x[1][:, 2]).astype(float)
+            ecg3 = np.array(x[1][:, 3]).astype(float)
+            sampleHR = [a, x[0], findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
+
+            def insert_inst_hr(x):
+                sqlcmd = "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
+                         "VALUES (%s, %s, %s, %s, %s)"
+                print('in fx _insert_inst_hr %s' % sqlcmd)
+                try:
+                    conn = psycopg2.connect(host=postgres_config['host'],
+                                            database=postgres_config['database'],
+                                            port=postgres_config['port'],
+                                            user=postgres_config['user'],
+                                            password=postgres_config['password'])
+                    cur = conn.cursor()
+                    cur.execute(sqlcmd, x)
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                except Exception as e:
+                    # self.logger.debug('Exception %s' % e)
+                    print('Exception %s' % e)
+
+            insert_inst_hr(sampleHR)
+            return
+
+        else:
+            return
+            #self.logger.debug('No HR returned')
+    #print('record ', record, type(record))
+    record.foreach(lambda x: _calculateHR(x))
+
+
+def insert_sample(postgres_config, a, record):
+    sqlcmd = "INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) " \
+             "VALUES (" + str(a) + ", %s, %s, %s, %s, %s) " \
+                                   "ON CONFLICT DO NOTHING"
+    print(sqlcmd)
+    def _insert_sample(x):
+        try:
+            conn = psycopg2.connect(host=postgres_config['host'],
+                                    database=postgres_config['database'],
+                                    port=postgres_config['port'],
+                                    user=postgres_config['user'],
+                                    password=postgres_config['password'])
+            cur = conn.cursor()
+            cur.executemany(sqlcmd, list(x))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print('Exception %s' % e)
+    record.foreachPartition(_insert_sample)
+
 
 class SparkConsumer:
 
@@ -84,100 +154,21 @@ class SparkConsumer:
 
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-        raw_record.foreachRDD(lambda x: (self.insert_sample(accum(self.a), x)))
+        raw_record.foreachRDD(lambda x: (insert_sample(self.postgres_config, accum(self.a), x)))
         self.logger.info('Saved records to db')
+
+
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
 
-        record_interval.foreachRDD(lambda x: self.calculateHR(x))
+        record_interval.foreachRDD(lambda x: calculateHR(self.postgres_config, self.a.value, x))
         self.logger.info('Calculated HR for 2s spark stream mini-batch')
+
 
         self.ssc.start()
         self.logger.info('Spark context started')
         self.ssc.awaitTermination()
         self.logger.info('Spark context terminated')
-
-    def calculateHR(self, record):
-        print('fxn calculateHR')
-        self.logger.info('fxn calculateHR')
-        a = self.a.value
-        postgres_config = self.postgres_config
-
-        def _calculateHR(x):
-            print('fxn _calculateHR')
-            #self.logger.info('fxn _calculateHR')
-            ts_str = x[1][:, 0]
-            if len(ts_str) > 3:
-                # print('passed: ', ts_str.shape)
-                ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
-                ts_datetime = np.array(ts_datetime)
-                ecg1 = np.array(x[1][:, 1]).astype(float)
-                # print(ecg1)
-                ecg2 = np.array(x[1][:, 2]).astype(float)
-                ecg3 = np.array(x[1][:, 3]).astype(float)
-                sampleHR = [a, x[0], findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
-
-                def insert_inst_hr(x):
-                    sqlcmd = "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
-                             "VALUES (%s, %s, %s, %s, %s)"
-                    print('in fx _insert_inst_hr %s' % sqlcmd)
-                    try:
-                        conn = psycopg2.connect(host=postgres_config['host'],
-                                                database=postgres_config['database'],
-                                                port=postgres_config['port'],
-                                                user=postgres_config['user'],
-                                                password=postgres_config['password'])
-                        cur = conn.cursor()
-                        cur.execute(sqlcmd, x)
-                        conn.commit()
-                        cur.close()
-                        conn.close()
-                    except Exception as e:
-                        # self.logger.debug('Exception %s' % e)
-                        print('Exception %s' % e)
-
-                insert_inst_hr(sampleHR)
-
-            else:
-                self.logger.debug('No HR returned')
-        print('record ', record, type(record))
-        record.foreach(_calculateHR)
-
-
-    def insert_sample(self, a, record):
-        # print('fxn insert ', logger)
-        # print('accum in insert', a)
-        self.logger.info('fxn insert')
-        sqlcmd = "INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) " \
-                 "VALUES (" + str(a) + ", %s, %s, %s, %s, %s) " \
-                                       "ON CONFLICT DO NOTHING"
-        #print(sqlcmd)
-        # print('fxn insert_partition: record is %s '%type(record))
-        # record_bcast = self.sc.broadcast(record)
-        postgres_config = self.postgres_config
-
-        def _insert_sample(x):
-            # print('x in _insert_partition', list(x), type(x))
-            # print(x)
-            # print('fxn _insert ')
-            # self.logger.info('fxn _insert')
-            try:
-                conn = psycopg2.connect(host=postgres_config['host'],
-                                        database=postgres_config['database'],
-                                        port=postgres_config['port'],
-                                        user=postgres_config['user'],
-                                        password=postgres_config['password'])
-                cur = conn.cursor()
-                cur.executemany(sqlcmd, list(x))
-                # cur.execute("DEALLOCATE inserts")
-                # cur.execute(sqlcmd, [a] + list(x))
-                conn.commit()
-                cur.close()
-                conn.close()
-            except Exception as e:
-                # self.logger.debug('Exception %s' % e)
-                print('Exception %s' % e)
-        record.foreachPartition(_insert_sample)
 
 if __name__ == '__main__':
     spark_config_infile = '../../.config/spark.config'
@@ -185,3 +176,4 @@ if __name__ == '__main__':
     consumer = SparkConsumer(spark_config_infile, postgres_config_infile)
     # consumer.start()
     consumer.run()
+
