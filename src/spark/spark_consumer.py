@@ -73,26 +73,29 @@ def get_connection(connpool):
     finally:
         connpool.putconn(conn)
 
-def _insert(connpool, x):
+def _insert(a, connpool, x):
+    #print(x)
     print('fxn _insert ')
     logger.info('fxn _insert')
-    sqlcmd = "INSERT INTO signal_samples(signame, time, ecg1, ecg2, ecg3) " \
-                     "VALUES (%s, %s, %s, %s, %s)"
+    sqlcmd = "INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) " \
+                     "VALUES (%s, %s, %s, %s, %s, %s)"
     for conn in get_connection(connpool).__iter__():
         #print(conn)
         try:
             cur = conn.cursor()
-            cur.execute(sqlcmd, x)
+            cur.execute(sqlcmd, [a]+x)
             cur.close()
             conn.commit()
         except Exception as e:
             logger.debug('Exception %s, rolling back'%e)
+            print('Exception %s, rolling back'%e)
             conn.rollback()
 
-def insert(connpool, record):
+def insert(a, connpool, record):
     #print('fxn insert ', logger)
+    print('accum in insert %s'%a)
     logger.info('fxn insert')
-    record.foreach(lambda x: _insert(connpool, x))
+    record.foreach(lambda x: _insert(a, connpool, x))
 
 
 def calculateHR(rdd):
@@ -112,7 +115,7 @@ if __name__ == '__main__':
     logger.setLevel(logging.INFO)
     kafka_config = helpers.parse_config('../../.config/spark.config')
     postgres_config = helpers.parse_config('../../.config/postgres.config')
-    # print(postgres_config)
+    #print(postgres_config)
     sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
     sc.setLogLevel("FATAL")
     ssc = StreamingContext(sc, 5)
@@ -125,22 +128,28 @@ if __name__ == '__main__':
     kafkastream = KafkaUtils.createDirectStream(ssc, [kafka_config['topic']],
                                                 {'metadata.broker.list': kafka_config['ip-addr']})
     logger.info('Connected kafka stream to spark context')
+    a = sc.accumulator(0)
+    def accum():
+       a.add(1)
+       return a.value
+    #print('dstream time: ', kafkastream._jtime(datetime.now()))
 
     lines = kafkastream.map(lambda x: x[1])
     logger.info('Reading in kafka stream line')
-
+    
     raw_record = lines.map(lambda line: line.encode('utf-8')). \
         map(lambda line: line.split(','))
-    raw_record.foreachRDD(lambda x: insert(connpool, x))
+    raw_record.foreachRDD(lambda x: (insert(accum(), connpool, x)))
+    raw_record.pprint()
     logger.info('Saved records to db')
-
+    '''
     record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
         groupByKey(). \
         map(lambda x: (x[0], np.array(list(x[1]))))
 
     record_interval.foreachRDD(calculateHR)
     logger.info('Calculated HR for 2s spark stream mini-batch')
-
+    '''
     ssc.start()
     logger.info('Spark context started')
     ssc.awaitTermination()
