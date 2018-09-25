@@ -30,4 +30,4 @@ CREATE TABLE inst_hr (
     signame varchar(50) NOT NULL,
     hr1 float(1) NOT NULL,
     hr2 float(1) NOT NULL,
-    hr3 float(1) NOT NULL);)
+    hr3 float(1) NOT NULL);
