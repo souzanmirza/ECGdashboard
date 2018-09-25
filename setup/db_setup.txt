@@ -18,9 +18,9 @@ sudo -i -u ecg
 psql
 
 CREATE TABLE signal_samples (
+    batchnum int NOT NULL,
     signame varchar(50) NOT NULL,
     time timestamp PRIMARY KEY,
     ecg1 float(1) NOT NULL,
     ecg2 float(1) NOT NULL,
-    ecg3 float(1) NOT NULL,
-);
+    ecg3 float(1) NOT NULL);
