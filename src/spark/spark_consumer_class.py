@@ -102,7 +102,8 @@ class SparkConsumer:
 
     def calculateHR(self, record):
         self.logger.info('fxn calculateHR')
-        def _calculateHR(a, x):
+        a = self.a.value
+        def _calculateHR(x):
             print('fxn _calculateHR')
             #self.logger.info('fxn _calculateHR')
             # for key in rdd_.keys().collect():
@@ -118,31 +119,33 @@ class SparkConsumer:
                 ecg2 = np.array(x[1][:, 2]).astype(float)
                 ecg3 = np.array(x[1][:, 3]).astype(float)
                 sampleHR = [a, x[0], self.findHR(ts_datetime, ecg1), self.findHR(ts_datetime, ecg2), self.findHR(ts_datetime, ecg3)]
-                self.insert_inst_hr(sampleHR)
+
+                def insert_inst_hr(x):
+                    sqlcmd = "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
+                             "VALUES (%s, %s, %s, %s, %s)"
+                    print('in fx _insert_inst_hr %s' % sqlcmd)
+                    try:
+                        conn = psycopg2.connect(host=self.postgres_config['host'],
+                                                database=self.postgres_config['database'],
+                                                port=self.postgres_config['port'],
+                                                user=self.postgres_config['user'],
+                                                password=self.postgres_config['password'])
+                        cur = conn.cursor()
+                        cur.execute(sqlcmd, x)
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                    except Exception as e:
+                        # self.logger.debug('Exception %s' % e)
+                        print('Exception %s' % e)
+
+                insert_inst_hr(sampleHR)
+
             else:
                 self.logger.debug('No HR returned')
 
-        record.foreach(lambda x: self._calculateHR(self.a.value, x))
+        record.foreach(_calculateHR)
 
-
-    def insert_inst_hr(self, x):
-        sqlcmd = "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
-                 "VALUES (%s, %s, %s, %s, %s)"
-        print('in fx _insert_inst_hr %s' % sqlcmd)
-        try:
-            conn = psycopg2.connect(host=self.postgres_config['host'],
-                                    database=self.postgres_config['database'],
-                                    port=self.postgres_config['port'],
-                                    user=self.postgres_config['user'],
-                                    password=self.postgres_config['password'])
-            cur = conn.cursor()
-            cur.execute(sqlcmd, x)
-            conn.commit()
-            cur.close()
-            conn.close()
-        except Exception as e:
-            # self.logger.debug('Exception %s' % e)
-            print('Exception %s' % e)
 
     def insert_sample(self, a, record):
         # print('fxn insert ', logger)
