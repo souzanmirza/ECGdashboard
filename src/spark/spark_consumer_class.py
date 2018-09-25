@@ -67,7 +67,7 @@ class SparkConsumer:
 
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-        raw_record.foreachRDD(lambda x: (self.insert(accum(self.a), x)))
+        raw_record.foreachRDD(lambda x: (self.insert_partition(accum(self.a), x)))
         self.logger.info('Saved records to db')
         self.ssc.start()
         self.logger.info('Spark context started')
@@ -172,32 +172,39 @@ class SparkConsumer:
 
     def insert_partition(self, a, record):
         # print('fxn insert ', logger)
-        print('accum in insert %s' % a)
+        #print('accum in insert', a)
         self.logger.info('fxn insert')
         sqlcmd = "INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) " \
-                 "VALUES (%s, %s, %s, %s, %s, %s)"
-        record.foreachPartition(lambda x: self._insert_partition(sqlcmd, a, x))
+                 "VALUES ("+str(a)+", %s, %s, %s, %s, %s) " \
+                 "ON CONFLICT DO NOTHING"
+        #print(sqlcmd)
+        #print('fxn insert_partition: record is %s '%type(record))
+        #record_bcast = self.sc.broadcast(record)
+        postgres_config = self.postgres_config
+        def _insert_partition(x):
+            #print('x in _insert_partition', list(x), type(x))
+            # print(x)
+            # print('fxn _insert ')
+            # self.logger.info('fxn _insert')
+            try:
+                conn = psycopg2.connect(host=postgres_config['host'],
+                                        database=postgres_config['database'],
+                                        port=postgres_config['port'],
+                                        user=postgres_config['user'],
+                                        password=postgres_config['password'])
+            except Exception as e:
+                # self.logger.debug('Exception %s' % e)
+                print('Exception %s' % e)
 
+            cur = conn.cursor()
+            cur.executemany(sqlcmd, list(x))
+            #cur.execute("DEALLOCATE inserts")
+            #cur.execute(sqlcmd, [a] + list(x))
+            conn.commit()
+            cur.close()
+            conn.close()
+        record.foreachPartition(_insert_partition) #(postgres_config, sqlcmd, a, list(x)))
 
-    def _insert_partition(self, sqlcmd, a, x):
-        # print(x)
-        # print('fxn _insert ')
-        self.logger.info('fxn _insert')
-        try:
-            conn = psycopg2.connect(host=self.postgres_config['host'],
-                                        database=self.postgres_config['database'],
-                                        port=self.postgres_config['port'],
-                                        user=self.postgres_config['user'],
-                                        password=self.postgres_config['password'])
-        except Exception as e:
-            self.logger.debug('Exception %s' % e)
-            print('Exception %s' % e)
-
-        cur = conn.cursor()
-        cur.execute(sqlcmd, [a] + x)
-        conn.commit()
-        cur.close()
-        conn.close()
 
 if __name__ == '__main__':
     spark_config_infile = '../../.config/spark.config'
