@@ -33,14 +33,14 @@ def findHR(ts, ecg):
             if bpm > 0:
                 return int(bpm)
             else:
-                logger.debug('No HR returned')
-                return None
+                logger.debug('Invalid HR returned')
+                return -1
         else:
-            logger.debug('No HR returned')
-            return None
+            logger.debug('Invalid HR returned')
+            return -1
     else:
-        logger.debug('No HR returned')
-        return None
+        logger.debug('Invalid HR returned')
+        return -1
 
 
 def _calculateHR(connpool, a, x):
@@ -82,7 +82,7 @@ def get_connection(connpool):
 
 def _insert(connpool, sqlcmd, a, x):
     #print(x)
-    print('fxn _insert ')
+    #print('fxn _insert ')
     logger.info('fxn _insert')
     for conn in get_connection(connpool).__iter__():
         #print(conn)
@@ -139,14 +139,14 @@ if __name__ == '__main__':
     raw_record = lines.map(lambda line: line.encode('utf-8')). \
         map(lambda line: line.split(','))
     raw_record.foreachRDD(lambda x: (insert(connpool, accum(), x)))
-    raw_record.pprint()
+    #raw_record.pprint()
     logger.info('Saved records to db')
 
     record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
         groupByKey(). \
         map(lambda x: (x[0], np.array(list(x[1]))))
 
-    record_interval.foreachRDD(lambda x: calculateHR(connpool, a, x))
+    record_interval.foreachRDD(lambda x: calculateHR(connpool, a.value, x))
     logger.info('Calculated HR for 2s spark stream mini-batch')
 
     ssc.start()
