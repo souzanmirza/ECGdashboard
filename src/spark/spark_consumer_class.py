@@ -62,16 +62,18 @@ class SparkConsumer:
             map(lambda line: line.split(','))
         raw_record.foreachRDD(lambda x: (self.insert_sample(accum(self.a), x)))
         self.logger.info('Saved records to db')
+        record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
+            groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
+
+        record_interval.foreachRDD(lambda x: self.calculateHR(x))
+        self.logger.info('Calculated HR for 2s spark stream mini-batch')
+
         self.ssc.start()
         self.logger.info('Spark context started')
         self.ssc.awaitTermination()
         self.logger.info('Spark context terminated')
 
-        record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
-            groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
 
-        record_interval.foreachRDD(self.calculateHR)
-        self.logger.info('Calculated HR for 2s spark stream mini-batch')
 
     def findHR(self, ts, ecg):
         self.logger.info('fxn findHR')
@@ -97,30 +99,30 @@ class SparkConsumer:
             self.logger.debug('Invalid HR returned')
             return -1
 
-    def _calculateHR(self, x):
-        print('fxn _calculateHR')
-        self.logger.info('fxn _calculateHR')
-        # for key in rdd_.keys().collect():
-        #     x = rdd_.lookup(key)
-        ts_str = x[1][:, 0]
-        # print(ts_str)
-        if len(ts_str) > 3:
-            # print('passed: ', ts_str.shape)
-            ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
-            ts_datetime = np.array(ts_datetime)
-            ecg1 = np.array(x[1][:, 1]).astype(float)
-            # print(ecg1)
-            ecg2 = np.array(x[1][:, 2]).astype(float)
-            ecg3 = np.array(x[1][:, 3]).astype(float)
-            sampleHR = [self.a.value, x[0], self.findHR(ts_datetime, ecg1), self.findHR(ts_datetime, ecg2), self.findHR(ts_datetime, ecg3)]
-            self.insert_inst_hr(sampleHR)
-        else:
-            self.logger.debug('No HR returned')
-
 
     def calculateHR(self, record):
         self.logger.info('fxn calculateHR')
-        record.foreach(self._calculateHR)
+        def _calculateHR(a, x):
+            print('fxn _calculateHR')
+            #self.logger.info('fxn _calculateHR')
+            # for key in rdd_.keys().collect():
+            #     x = rdd_.lookup(key)
+            ts_str = x[1][:, 0]
+            # print(ts_str)
+            if len(ts_str) > 3:
+                # print('passed: ', ts_str.shape)
+                ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
+                ts_datetime = np.array(ts_datetime)
+                ecg1 = np.array(x[1][:, 1]).astype(float)
+                # print(ecg1)
+                ecg2 = np.array(x[1][:, 2]).astype(float)
+                ecg3 = np.array(x[1][:, 3]).astype(float)
+                sampleHR = [a, x[0], self.findHR(ts_datetime, ecg1), self.findHR(ts_datetime, ecg2), self.findHR(ts_datetime, ecg3)]
+                self.insert_inst_hr(sampleHR)
+            else:
+                self.logger.debug('No HR returned')
+
+        record.foreach(lambda x: self._calculateHR(self.a.value, x))
 
 
     def insert_inst_hr(self, x):
