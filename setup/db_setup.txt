@@ -24,3 +24,10 @@ CREATE TABLE signal_samples (
     ecg1 float(1) NOT NULL,
     ecg2 float(1) NOT NULL,
     ecg3 float(1) NOT NULL);
+
+CREATE TABLE inst_hr (
+    batchnum int PRIMARY KEY,
+    signame varchar(50) NOT NULL,
+    hr1 float(1) NOT NULL,
+    hr2 float(1) NOT NULL,
+    hr3 float(1) NOT NULL);)
