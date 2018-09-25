@@ -34,7 +34,10 @@ class SparkConsumer:
         self.logger.setLevel(logging.INFO)
         self.spark_config = helpers.parse_config(spark_config_infile)
         self.postgres_config = helpers.parse_config(postgres_config_infile)
-        self.sc, self.scc = self.startSpark()
+        self.sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
+        self.sc.setLogLevel("FATAL")
+        self.ssc = StreamingContext(self.sc, 5)
+        self.logger.info('Opened spark Context')
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
         self.connpool = self.openDBConnectionPool()
@@ -42,14 +45,9 @@ class SparkConsumer:
     def start(self):
         self.ssc.start()
         self.logger.info('Spark context started')
-
-    def startSpark(self):
-        sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
-        sc.setLogLevel("FATAL")
-        ssc = StreamingContext(sc, 5)
-        self.logger.info('Opened spark Context')
-        return sc, ssc
-
+        self.ssc.awaitTermination()
+        self.logger.info('Spark context terminated')
+        
     def openKafka(self):
         kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
                                                          {'metadata.broker.list': self.spark_config['ip-addr']})
@@ -71,15 +69,16 @@ class SparkConsumer:
             map(lambda line: line.split(','))
         raw_record.foreachRDD(lambda x: (self.insert(accum(self.a), x)))
         self.logger.info('Saved records to db')
+        self.ssc.start()
+        self.logger.info('Spark context started')
+        self.ssc.awaitTermination()
+        self.logger.info('Spark context terminated')
         '''
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
 
         record_interval.foreachRDD(lambda x: self.calculateHR(self.a.value, x))
         self.logger.info('Calculated HR for 2s spark stream mini-batch')
-
-        # ssc.awaitTermination()
-        # logger.info('Spark context terminated')
         '''
 
     def findHR(self, ts, ecg):
@@ -204,6 +203,7 @@ if __name__ == '__main__':
     spark_config_infile = '../../.config/spark.config'
     postgres_config_infile = '../../.config/postgres.config'
     consumer = SparkConsumer(spark_config_infile, postgres_config_infile)
+    #consumer.start()
     consumer.run()
 
 
