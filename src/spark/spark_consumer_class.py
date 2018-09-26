@@ -56,19 +56,23 @@ def calculateHR(logger, postgres_config, s3bucket_config, a, record):
     def _calculateHR(x):
         #print('fxn _calculateHR')
         logger.warn('fxn _calculateHR')
-        ts_str = x[1][:, 0]
+        #print('x', type(x))
+        signame = x[0]
+        signal = np.array(x[1])
+        ts_str = signal[:, 0]
         if len(ts_str) > 3:
             # print('passed: ', ts_str.shape)
             ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
             ts_datetime = np.array(ts_datetime)
-            ecg1 = np.array(x[1][:, 1]).astype(float)
+            ecg1 = np.array(signal[:, 1]).astype(float)
             # print(ecg1)
-            ecg2 = np.array(x[1][:, 2]).astype(float)
-            ecg3 = np.array(x[1][:, 3]).astype(float)
+            ecg2 = np.array(signal[:, 2]).astype(float)
+            ecg3 = np.array(signal[:, 3]).astype(float)
             logger.warn("calling findhr")
-            sampleHR = [a, x[0], findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
+            sampleHR = [a, signame, findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
+            print(sampleHR)
 
-            def insert_inst_hr(x):
+            def insert_inst_hr(y):
                 sqlcmd = "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
                          "VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
                 #print('in fx _insert_inst_hr %s' % sqlcmd)
@@ -79,7 +83,7 @@ def calculateHR(logger, postgres_config, s3bucket_config, a, record):
                                             user=postgres_config['user'],
                                             password=postgres_config['password'])
                     cur = conn.cursor()
-                    cur.execute(sqlcmd, x)
+                    cur.execute(sqlcmd, y)
                     conn.commit()
                     cur.close()
                     conn.close()
@@ -88,16 +92,14 @@ def calculateHR(logger, postgres_config, s3bucket_config, a, record):
                     print('Exception %s' % e)
 
             insert_inst_hr(sampleHR)
-            return
-
         else:
-            return
-            logger.debug('No HR returned')
-    record.foreach(_calculateHR)
-    record.repartition(1).saveAsTextFile("s3a://{0}:{1}@{2}/processed/{3}-{4}.txt".format(s3bucket_config['aws_access_key_id'],
+            logger.debug('No HR returned')        
+    record.foreach(lambda x: _calculateHR(x))
+    #print('record', type(record), record.keys())
+    record.repartition(1).saveAsTextFile("s3a://{}:{}@{}/processed/batchnum{:05d}.txt".format(s3bucket_config['aws_access_key_id'],
                                                                                         s3bucket_config['aws_secret_access_key'],
                                                                                         s3bucket_config['bucket'],
-                                                                                        record[0], a))
+                                                                                        a))
 
 def insert_sample(logger, postgres_config, a, record):
     logger.warn('fxn insert_sample')
@@ -200,7 +202,7 @@ class SparkConsumer:
 
 
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
-            groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
+            groupByKey().map(lambda x: (x[0], list(x[1])))
 
         record_interval.foreachRDD(lambda x: calculateHR(self.logger, self.postgres_config, self.s3bucket_config, self.a.value, x))
         self.logger.warn('Calculated HR for 2s spark stream mini-batch')
@@ -214,8 +216,9 @@ class SparkConsumer:
 if __name__ == '__main__':
     spark_config_infile = '../../.config/spark.config'
     postgres_config_infile = '../../.config/postgres.config'
-    s3bucket_config = '../../.config/s3bucket.config'
-    consumer = SparkConsumer(spark_config_infile, postgres_config_infile)
+    s3bucket_config_infile = '../../.config/s3bucket.config'
+    consumer = SparkConsumer(spark_config_infile, postgres_config_infile, s3bucket_config_infile)
     consumer.run()
+
 
 
