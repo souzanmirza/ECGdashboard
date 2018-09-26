@@ -47,7 +47,7 @@ def findHR(ts, ecg):
         #self.logger.debug('Invalid HR returned')
         return -1
 
-def calculateHR(logger, postgres_config, a, record):
+def calculateHR(logger, postgres_config, s3bucket_config, a, record):
     #print('fxn calculateHR')
     logger.warn('fxn calculateHR')
     #a = self.a.value
@@ -93,8 +93,11 @@ def calculateHR(logger, postgres_config, a, record):
         else:
             return
             logger.debug('No HR returned')
-    record.foreach(lambda x: _calculateHR(x))
-
+    record.foreach(_calculateHR)
+    record.repartition(1).saveAsTextFile("s3a://{0}:{1}@{2}/processed/{3}-{4}.txt".format(s3bucket_config['aws_access_key_id'],
+                                                                                        s3bucket_config['aws_secret_access_key'],
+                                                                                        s3bucket_config['bucket'],
+                                                                                        record[0], a))
 
 def insert_sample(logger, postgres_config, a, record):
     logger.warn('fxn insert_sample')
@@ -121,7 +124,7 @@ def insert_sample(logger, postgres_config, a, record):
 
 class SparkConsumer:
 
-    def __init__(self, spark_config_infile, postgres_config_infile):
+    def __init__(self, spark_config_infile, postgres_config_infile, s3bucket_config_infile):
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s',
                             filename='./tmp/spark_consumer.log',
@@ -130,6 +133,7 @@ class SparkConsumer:
         self.logger.setLevel(logging.WARN)
         self.spark_config = helpers.parse_config(spark_config_infile)
         self.postgres_config = helpers.parse_config(postgres_config_infile)
+        self.s3bucket_config = helpers.parse_config(s3bucket_config_infile)
         self.sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
         self.sc.setLogLevel("FATAL")
         self.ssc = StreamingContext(self.sc, 5)
@@ -137,6 +141,7 @@ class SparkConsumer:
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
         self.setupDB()
+
 
     def start(self):
         self.ssc.start()
@@ -197,7 +202,7 @@ class SparkConsumer:
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], np.array(list(x[1]))))
 
-        record_interval.foreachRDD(lambda x: calculateHR(self.logger, self.postgres_config, self.a.value, x))
+        record_interval.foreachRDD(lambda x: calculateHR(self.logger, self.postgres_config, self.s3bucket_config, self.a.value, x))
         self.logger.warn('Calculated HR for 2s spark stream mini-batch')
 
 
@@ -209,6 +214,7 @@ class SparkConsumer:
 if __name__ == '__main__':
     spark_config_infile = '../../.config/spark.config'
     postgres_config_infile = '../../.config/postgres.config'
+    s3bucket_config = '../../.config/s3bucket.config'
     consumer = SparkConsumer(spark_config_infile, postgres_config_infile)
     consumer.run()
 
