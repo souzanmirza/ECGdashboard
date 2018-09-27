@@ -1,8 +1,6 @@
 import sys
-from kafka.client import KafkaClient
 from kafka.producer import KafkaProducer
 import boto3
-import lazyreader
 import time
 from datetime import datetime
 sys.path.append('../python/')
