@@ -52,18 +52,30 @@ def findHR(ts, ecg):
 def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_sample')
 
+    sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
+    sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
+ 
     def _insert_sample(sqlcmd1, sqlcmd2, signals):
+        logger.warn('fxn _insert_sample')
+        #print('fxn _insert_sample signals is ', len(list(signals)), type(signals))
+        #print('fxn _insert_sample', list(signals))
         for signal in signals:
+            #print(type(signal))
+            #print('fxn _insert_sample', signal[0])
+            _sqlcmd1 = sqlcmd1.format(a, signal[0])
             try:
+                #print('in try block')
                 conn = psycopg2.connect(host=postgres_config['host'],
                                         database=postgres_config['database'],
                                         port=postgres_config['port'],
                                         user=postgres_config['user'],
                                         password=postgres_config['password'])
+                #print('conn successful')
                 cur = conn.cursor()
-                sqlcmd1 = sqlcmd1.format(a, signal[0])
-                print(sqlcmd1)
-                cur.execute(sqlcmd1)
+                #print('cur opened')
+                print(_sqlcmd1)
+                logger.warn(_sqlcmd1)
+                cur.execute(_sqlcmd1)
                 extras.execute_batch(cur, sqlcmd2, signal[1])
                 cur.execute("DEALLOCATE inserts")
                 conn.commit()
@@ -90,8 +102,8 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
                 ecg2 = np.array(signal[:, 2]).astype(float)
                 ecg3 = np.array(signal[:, 3]).astype(float)
                 logger.warn("calling findhr")
-                sampleHR = (
-                signame, [[findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]])
+                sampleHR = (signame, [[findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]])
+                #print(sampleHR)
                 signals_HR.append(sampleHR)
         else:
             logger.debug('No HR returned')
@@ -99,11 +111,8 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
         sqlcmd3 = "PREPARE inserts AS INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) VALUES ({}, '{}', $1, $2, $3) ON CONFLICT DO NOTHING;"
         sqlcmd4 = "EXECUTE inserts (%s, %s, %s)"
         _insert_sample(sqlcmd3, sqlcmd4, signals_HR)
-
-    sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
-    sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
-
-    record.foreachPartition(lambda x: _insert_sample(sqlcmd1, sqlcmd2, x))
+    #print(record.take(1))
+    record.foreachPartition(lambda x: _insert_sample(sqlcmd1, sqlcmd2, list(x)))
     record.foreachPartition(_calculateHR)
 
     record.repartition(1).saveAsTextFile(
@@ -115,7 +124,7 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
 
 class SparkConsumer:
 
-    def __init__(self, spark_config_infile, postgres_config_infile, s3bucket_config_infile):
+    def __init__(self, kafka_config_infile, spark_config_infile, postgres_config_infile, s3bucket_config_infile):
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s',
                             filename='./tmp/spark_consumer.log',
@@ -125,9 +134,10 @@ class SparkConsumer:
         self.spark_config = helpers.parse_config(spark_config_infile)
         self.postgres_config = helpers.parse_config(postgres_config_infile)
         self.s3bucket_config = helpers.parse_config(s3bucket_config_infile)
+        self.kafka_config = helpers.parse_config(kafka_config_infile)
         self.sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
         self.sc.setLogLevel("FATAL")
-        self.ssc = StreamingContext(self.sc, 5)
+        self.ssc = StreamingContext(self.sc, 2)
         self.logger.warn('Opened spark Context')
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
@@ -140,16 +150,16 @@ class SparkConsumer:
         self.logger.warn('Spark context terminated')
 
     def openKafka(self):
-        topic, n = self.spark_config["topic"], self.spark_config["partitions"]
+        topic, n = self.kafka_config["topic"], self.kafka_config["partitions"]
         try:
             fromOffsets = {TopicAndPartition(topic, i): long(0) for i in range(n)}
         except:
             fromOffsets = None
         # not exactly sure what fromOffsets does
         kafkastream = KafkaUtils.createDirectStream(self.ssc, [topic],
-                                                {"metadata.broker.list": self.spark_config['ip-addr'],
-                                                 'group.id': self.spark_config['group-id']},
-                                                fromOffsets=fromOffsets)
+                                                {"metadata.broker.list": self.kafka_config['ip-addr'],
+                                                 "group.id": self.spark_config['group-id'],
+                                                 "num.partitions": self.kafka_config['partitions']})
         # kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
         #                                             {'metadata.broker.list': self.spark_config['ip-addr'],
         #                                              'group.id': self.spark_config['group-id']})
@@ -170,9 +180,9 @@ class SparkConsumer:
                                                        batchnum int NOT NULL, \
                                                        signame varchar(50) NOT NULL, \
                                                        time timestamp NOT NULL, \
-                                                       ecg1 float(1) NOT NULL, \
-                                                       ecg2 float(1) NOT NULL, \
-                                                       ecg3 float(1) NOT NULL);")
+                                                       ecg1 float(6) NOT NULL, \
+                                                       ecg2 float(6) NOT NULL, \
+                                                       ecg3 float(6) NOT NULL);")
             # print("created signal_samples table")
             cur.execute("CREATE INDEX IF NOT EXISTS signal_samples_idx ON signal_samples (signame, time);")
             cur.execute("CREATE TABLE IF NOT EXISTS inst_hr (id serial PRIMARY KEY, \
@@ -196,10 +206,10 @@ class SparkConsumer:
 
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-
+        
+        print('num rdd is', raw_record.count().pprint())
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
-
         record_interval.foreachRDD(
             lambda x: process_and_save_sample(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a),
                                               x))
@@ -214,7 +224,9 @@ class SparkConsumer:
 
 if __name__ == '__main__':
     spark_config_infile = '../../.config/spark.config'
+    kafka_config_infile = '../../.config/kafka.config'
     postgres_config_infile = '../../.config/postgres.config'
     s3bucket_config_infile = '../../.config/s3bucket.config'
-    consumer = SparkConsumer(spark_config_infile, postgres_config_infile, s3bucket_config_infile)
+    consumer = SparkConsumer(kafka_config_infile, spark_config_infile, postgres_config_infile, s3bucket_config_infile)
     consumer.run()
+
