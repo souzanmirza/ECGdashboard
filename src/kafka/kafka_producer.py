@@ -14,6 +14,7 @@ class Producer(object):
 
     def __init__(self, ip_addr):
         self.kafka_config = helpers.parse_config('../../.config/kafka.config')
+        self.s3bucket_config = helpers.parse_config('../../.config/s3bucket.config')
         self.producer = KafkaProducer(bootstrap_servers=ip_addr)
         # self.producer = KafkaProducer(value_serializer=lambda v: v.encode('utf-8'),
         #                               bootstrap_servers=addr)
@@ -47,7 +48,7 @@ class Producer(object):
         while True:
 
             s3 = boto3.client('s3')
-            obj = s3.get_object(Bucket=self.kafka_config['bucket'],
+            obj = s3.get_object(Bucket=self.s3bucket_config['bucket'],
                                 Key="%s_signals.txt" %file_key)
             #for i in range(fs):
                 #time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
