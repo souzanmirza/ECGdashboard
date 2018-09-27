@@ -61,7 +61,9 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
                                         user=postgres_config['user'],
                                         password=postgres_config['password'])
                 cur = conn.cursor()
-                cur.execute(sqlcmd1.format(a, signal[0]))
+                sqlcmd1 = sqlcmd1.format(a, signal[0])
+                print(sqlcmd1)
+                cur.execute(sqlcmd1)
                 extras.execute_batch(cur, sqlcmd2, signal[1])
                 cur.execute("DEALLOCATE inserts")
                 conn.commit()
@@ -75,7 +77,7 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
         logger.warn('fxn _calculateHR')
         signals_HR = []
         for x in signals:
-            print('x', len(x), type(x))
+            # print('x', len(x), type(x))
             signame = str(x[0])
             signal = np.array(x[1])
             ts_str = signal[:, 0]
