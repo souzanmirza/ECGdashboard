@@ -52,33 +52,23 @@ def findHR(ts, ecg):
 def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_sample')
 
-    # print(sqlcmd)
     def _insert_sample(sqlcmd1, sqlcmd2, signals):
         for signal in signals:
-            # print(type(signal[1]), len(signal[1]), signal[1][0])
             try:
-                print('in try block')
                 conn = psycopg2.connect(host=postgres_config['host'],
                                         database=postgres_config['database'],
                                         port=postgres_config['port'],
                                         user=postgres_config['user'],
                                         password=postgres_config['password'])
                 cur = conn.cursor()
-                try:
-                    sqlcmd1 = sqlcmd1.format(a, signal[0])
-                finally:
-                    print(sqlcmd1)
-                    cur.execute(sqlcmd1)
-                    extras.execute_batch(cur, sqlcmd2, signal[1])
-                    cur.execute("DEALLOCATE inserts")
-                    print('cursor created')
-                    # cur.executemany(sqlcmd, signal[1])
-                    conn.commit()
-                    print('change commited to db')
-                    cur.close()
-                    conn.close()
+                cur.execute(sqlcmd1.format(a, signal[0]))
+                extras.execute_batch(cur, sqlcmd2, signal[1])
+                cur.execute("DEALLOCATE inserts")
+                conn.commit()
+                cur.close()
+                conn.close()
             except Exception as e:
-                print('Exception %s' % e)
+                logger.warn('Exception %s' % e)
 
     def _calculateHR(signals):
         # print('fxn _calculateHR')
@@ -98,7 +88,8 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
                 ecg2 = np.array(signal[:, 2]).astype(float)
                 ecg3 = np.array(signal[:, 3]).astype(float)
                 logger.warn("calling findhr")
-                sampleHR = (signame, [[findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]])
+                sampleHR = (
+                signame, [[findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]])
                 signals_HR.append(sampleHR)
         else:
             logger.debug('No HR returned')
@@ -214,4 +205,3 @@ if __name__ == '__main__':
     s3bucket_config_infile = '../../.config/s3bucket.config'
     consumer = SparkConsumer(spark_config_infile, postgres_config_infile, s3bucket_config_infile)
     consumer.run()
-
