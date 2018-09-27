@@ -139,7 +139,8 @@ class SparkConsumer:
 
     def openKafka(self):
         kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
-                                                    {'metadata.broker.list': self.spark_config['ip-addr']})
+                                                    {'metadata.broker.list': self.spark_config['ip-addr'],
+                                                     'group.id': self.spark_config['group-id']})
         self.logger.warn('Connected kafka stream to spark context')
         return kafkastream
 
