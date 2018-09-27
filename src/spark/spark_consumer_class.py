@@ -9,7 +9,7 @@ sys.path.append('../python/')
 
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
-from pyspark.streaming.kafka import KafkaUtils
+from pyspark.streaming.kafka import KafkaUtils, TopicAndPartition
 from datetime import datetime
 import detect_peaks
 import numpy as np
@@ -140,9 +140,19 @@ class SparkConsumer:
         self.logger.warn('Spark context terminated')
 
     def openKafka(self):
-        kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
-                                                    {'metadata.broker.list': self.spark_config['ip-addr'],
-                                                     'group.id': self.spark_config['group-id']})
+        topic, n = self.spark_config["topic"], self.spark_config["partitions"]
+        try:
+            fromOffsets = {TopicAndPartition(topic, i): long(0) for i in range(n)}
+        except:
+            fromOffsets = None
+        # not exactly sure what fromOffsets does
+        kafkastream = KafkaUtils.createDirectStream(self.ssc, [topic],
+                                                {"metadata.broker.list": self.spark_config['ip-addr'],
+                                                 'group.id': self.spark_config['group-id']},
+                                                fromOffsets=fromOffsets)
+        # kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
+        #                                             {'metadata.broker.list': self.spark_config['ip-addr'],
+        #                                              'group.id': self.spark_config['group-id']})
         self.logger.warn('Connected kafka stream to spark context')
         return kafkastream
 
