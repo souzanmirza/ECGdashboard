@@ -1,8 +1,7 @@
 #!/bin/bash
 BUCKET=$1
 RECORDLIST=$2
-IP_ADDR=$3
-SESSION=$4
+SESSION=$3
 
 aws s3 cp s3://$BUCKET/$RECORDLIST $RECORDLIST
 readarray recordsarray < $RECORDLIST
@@ -13,5 +12,5 @@ for (( i=0; i<$rlen; i++));
 do
     echo ${recordsarray[$i]}
     tmux new-window -t $((i+1))
-    tmux send-keys -t $SESSION:$((i+1)) 'python kafka_producer.py '"$IP_ADDR"' '"${recordsarray[$i]}"'' C-m
+    tmux send-keys -t $SESSION:$((i+1)) 'python kafka_producer.py '"${recordsarray[$i]}"'' C-m
 done
