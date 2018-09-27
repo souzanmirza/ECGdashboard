@@ -50,7 +50,7 @@ class Producer(object):
 
             s3 = boto3.client('s3')
             obj = s3.get_object(Bucket=self.kafka_config['bucket'],
-                                Key="%s_signals.txt" %file_key)
+                                Key="mghdata_ts/%s_signals.txt" %file_key)
             #for i in range(fs):
                 #time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
             for line in obj['Body'].iter_lines():
