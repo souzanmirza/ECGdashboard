@@ -14,9 +14,9 @@ fs = 360
 
 class Producer(object):
 
-    def __init__(self):
+    def __init__(self, ip_addr):
         self.kafka_config = helpers.parse_config('../../.config/kafka.config')
-        self.producer = KafkaProducer(bootstrap_servers=self.kafka_config['ip-addr'])
+        self.producer = KafkaProducer(bootstrap_servers=ip_addr)
         # self.producer = KafkaProducer(value_serializer=lambda v: v.encode('utf-8'),
         #                               bootstrap_servers=addr)
 
@@ -75,6 +75,7 @@ class Producer(object):
 if __name__ == "__main__":
     print('kafka_producer called')
     args = sys.argv
-    file_key = str(args[1])
-    prod = Producer()
+    ip_addr = str(args[1])
+    file_key = str(args[2])
+    prod = Producer(ip_addr)
     prod.produce_msgs(file_key)
