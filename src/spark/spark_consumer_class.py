@@ -48,13 +48,12 @@ def findHR(ts, ecg):
         # self.logger.debug('Invalid HR returned')
         return -1
 
+
 def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_sample')
 
     # print(sqlcmd)
     def _insert_sample(sqlcmd1, sqlcmd2, signals):
-        if type(signals) == list:
-            signals = [signals]
         for signal in signals:
             # print(type(signal[1]), len(signal[1]), signal[1][0])
             try:
@@ -68,6 +67,7 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
                 try:
                     sqlcmd1 = sqlcmd1.format(a, signal[0])
                 finally:
+                    print(sqlcmd1)
                     cur.execute(sqlcmd1)
                     extras.execute_batch(cur, sqlcmd2, signal[1])
                     cur.execute("DEALLOCATE inserts")
@@ -86,7 +86,7 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
         signals_HR = []
         for x in signals:
             print('x', len(x), type(x))
-            signame = x[0]
+            signame = str(x[0])
             signal = np.array(x[1])
             ts_str = signal[:, 0]
             if len(ts_str) > 3:
@@ -98,21 +98,21 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
                 ecg2 = np.array(signal[:, 2]).astype(float)
                 ecg3 = np.array(signal[:, 3]).astype(float)
                 logger.warn("calling findhr")
-                sampleHR = [str(a), signame, findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
+                sampleHR = (signame, [[findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]])
                 signals_HR.append(sampleHR)
-           else:
-                logger.debug('No HR returned')
-        
-        sqlcmd3 = "PREPARE inserts AS INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;"
-        sqlcmd4 = "EXECUTE inserts (%s, %s, %s, %s, %s);"
+        else:
+            logger.debug('No HR returned')
+
+        sqlcmd3 = "PREPARE inserts AS INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) VALUES ({}, '{}', $1, $2, $3) ON CONFLICT DO NOTHING;"
+        sqlcmd4 = "EXECUTE inserts (%s, %s, %s)"
         _insert_sample(sqlcmd3, sqlcmd4, signals_HR)
-    
+
     sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
     sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
 
     record.foreachPartition(lambda x: _insert_sample(sqlcmd1, sqlcmd2, x))
     record.foreachPartition(_calculateHR)
-   
+
     record.repartition(1).saveAsTextFile(
         "s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".format(s3bucket_config['aws_access_key_id'],
                                                                 s3bucket_config['aws_secret_access_key'],
@@ -196,7 +196,9 @@ class SparkConsumer:
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
 
-        record_interval.foreachRDD(lambda x: process_and_save_sample(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
+        record_interval.foreachRDD(
+            lambda x: process_and_save_sample(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a),
+                                              x))
 
         self.logger.warn('Saved records to DB and S3 and calculated HR for 2s spark stream mini-batch')
 
