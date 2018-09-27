@@ -23,8 +23,9 @@ def accum(a):
     a.add(1)
     return a.value
 
+
 def findHR(ts, ecg):
-    #self.logger.warn('fxn findHR')
+    # self.logger.warn('fxn findHR')
     '''detect HR using avg of R-R intervals'''
     # ecg = filter_ecg(ecg)
     maxpeak = 0.33 * max(ecg)
@@ -38,123 +39,86 @@ def findHR(ts, ecg):
             if bpm > 0:
                 return int(bpm)
             else:
-                #self.logger.debug('Invalid HR returned')
+                # self.logger.debug('Invalid HR returned')
                 return -1
         else:
-            #self.logger.debug('Invalid HR returned')
+            # self.logger.debug('Invalid HR returned')
             return -1
     else:
-        #self.logger.debug('Invalid HR returned')
+        # self.logger.debug('Invalid HR returned')
         return -1
 
-def calculateHR(logger, postgres_config, s3bucket_config, a, record):
-    #print('fxn calculateHR')
-    logger.warn('fxn calculateHR')
-    #a = self.a.value
-    #postgres_config = self.postgres_config
-
-    def _calculateHR(x):
-        #print('fxn _calculateHR')
-        logger.warn('fxn _calculateHR')
-        print('x', len(x), type(x))
-        signame = x[0]
-        signal = np.array(x[1])
-        ts_str = signal[:, 0]
-        if len(ts_str) > 3:
-            # print('passed: ', ts_str.shape)
-            ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
-            ts_datetime = np.array(ts_datetime)
-            ecg1 = np.array(signal[:, 1]).astype(float)
-            # print(ecg1)
-            ecg2 = np.array(signal[:, 2]).astype(float)
-            ecg3 = np.array(signal[:, 3]).astype(float)
-            logger.warn("calling findhr")
-            sampleHR = [a, signame, findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
-            print(sampleHR)
-
-            def insert_inst_hr(y):
-                sqlcmd = "INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) " \
-                         "VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
-                #print('in fx _insert_inst_hr %s' % sqlcmd)
-                try:
-                    conn = psycopg2.connect(host=postgres_config['host'],
-                                            database=postgres_config['database'],
-                                            port=postgres_config['port'],
-                                            user=postgres_config['user'],
-                                            password=postgres_config['password'])
-                    cur = conn.cursor()
-                    cur.execute(sqlcmd, y)
-                    conn.commit()
-                    cur.close()
-                    conn.close()
-                except Exception as e:
-                    logger.debug('Exception %s' % e)
-                    print('Exception %s' % e)
-
-            insert_inst_hr(sampleHR)
-        else:
-            logger.debug('No HR returned')        
-    record.foreach(lambda x: _calculateHR(x))
-    #print('record', type(record), record.keys())
-    #record.repartition(1).saveAsTextFile("s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".format(s3bucket_config['aws_access_key_id'],
-     #                                                                                   s3bucket_config['aws_secret_access_key'],
-      #                                                                                  s3bucket_config['bucket'],
-      #                                                                                  a, datetime.now()))
-
-def insert_sample(logger, postgres_config, a, record):
+def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_sample')
-    sqlcmd = "INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) " \
-             "VALUES ({}, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING".format(str(a))
-    #print(sqlcmd)
-    def _insert_sample(x):
-        logger.warn('fxn _insert_sample')
-        try:
-            conn = psycopg2.connect(host=postgres_config['host'],
-                                    database=postgres_config['database'],
-                                    port=postgres_config['port'],
-                                    user=postgres_config['user'],
-                                    password=postgres_config['password'])
-            cur = conn.cursor()
-            cur.executemany(sqlcmd, list(x))
-            conn.commit()
-            cur.close()
-            conn.close()
-        except Exception as e:
-            logger.warn('Exception %s' % e)
-    record.foreachPartition(_insert_sample)
 
-
-def new_insert_sample(logger, postgres_config, a, record):
-    logger.warn('fxn insert_sample')
-    #print(sqlcmd)
-    def _insert_sample(signals):
+    # print(sqlcmd)
+    def _insert_sample(sqlcmd1, sqlcmd2, signals):
+        if type(signals) == list:
+            signals = [signals]
         for signal in signals:
-                sqlcmd = "INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) " \
-                         "VALUES ({0!s}, {1!s}, %s, %s, %s, %s) ON CONFLICT DO NOTHING".format(a, str(signal[0]))
-                print(sqlcmd)
-                logger.warn('fxn _insert_sample')
-                #print(type(signal[1]), len(signal[1]), signal[1][0])
+            # print(type(signal[1]), len(signal[1]), signal[1][0])
+            try:
+                print('in try block')
+                conn = psycopg2.connect(host=postgres_config['host'],
+                                        database=postgres_config['database'],
+                                        port=postgres_config['port'],
+                                        user=postgres_config['user'],
+                                        password=postgres_config['password'])
+                cur = conn.cursor()
                 try:
-                    print('in try block')
-                    conn = psycopg2.connect(host=postgres_config['host'],
-                                            database=postgres_config['database'],
-                                            port=postgres_config['port'],
-                                            user=postgres_config['user'],
-                                            password=postgres_config['password'])
-                    cur = conn.cursor()
-                    cur.execute( "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) \
-                                                        VALUES ({}, '{}', $1, $2, $3, $4);".format(a, signal[0]))
-                    extras.execute_batch(cur, "EXECUTE inserts (%s, %s, %s, %s)", signal[1])
+                    sqlcmd1 = sqlcmd1.format(a, signal[0])
+                finally:
+                    cur.execute(sqlcmd1)
+                    extras.execute_batch(cur, sqlcmd2, signal[1])
                     cur.execute("DEALLOCATE inserts")
                     print('cursor created')
-                    #cur.executemany(sqlcmd, signal[1])
+                    # cur.executemany(sqlcmd, signal[1])
                     conn.commit()
                     print('change commited to db')
                     cur.close()
                     conn.close()
-                except Exception as e:
-                    print('Exception %s' % e)
-    record.foreachPartition(lambda x: _insert_sample(x))
+            except Exception as e:
+                print('Exception %s' % e)
+
+    def _calculateHR(signals):
+        # print('fxn _calculateHR')
+        logger.warn('fxn _calculateHR')
+        signals_HR = []
+        for x in signals:
+            print('x', len(x), type(x))
+            signame = x[0]
+            signal = np.array(x[1])
+            ts_str = signal[:, 0]
+            if len(ts_str) > 3:
+                # print('passed: ', ts_str.shape)
+                ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
+                ts_datetime = np.array(ts_datetime)
+                ecg1 = np.array(signal[:, 1]).astype(float)
+                # print(ecg1)
+                ecg2 = np.array(signal[:, 2]).astype(float)
+                ecg3 = np.array(signal[:, 3]).astype(float)
+                logger.warn("calling findhr")
+                sampleHR = [str(a), signame, findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]
+                signals_HR.append(sampleHR)
+           else:
+                logger.debug('No HR returned')
+        
+        sqlcmd3 = "PREPARE inserts AS INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;"
+        sqlcmd4 = "EXECUTE inserts (%s, %s, %s, %s, %s);"
+        _insert_sample(sqlcmd3, sqlcmd4, signals_HR)
+    
+    sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
+    sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
+
+    record.foreachPartition(lambda x: _insert_sample(sqlcmd1, sqlcmd2, x))
+    record.foreachPartition(_calculateHR)
+   
+    record.repartition(1).saveAsTextFile(
+        "s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".format(s3bucket_config['aws_access_key_id'],
+                                                                s3bucket_config['aws_secret_access_key'],
+                                                                s3bucket_config['bucket'],
+                                                                a, datetime.now()))
+
 
 class SparkConsumer:
 
@@ -175,7 +139,6 @@ class SparkConsumer:
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
         self.setupDB()
-
 
     def start(self):
         self.ssc.start()
@@ -221,7 +184,7 @@ class SparkConsumer:
             conn.close()
             self.logger.warn("Done setting up DB tables")
         except Exception as e:
-            self.logger.warn('Exception %s'%e)
+            self.logger.warn('Exception %s' % e)
 
     def run(self):
         lines = self.kafkastream.map(lambda x: x[1])
@@ -229,24 +192,19 @@ class SparkConsumer:
 
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-        # raw_record.foreachRDD(lambda x: (insert_sample(self.logger, self.postgres_config, accum(self.a), x)))
-        self.logger.warn('Saved records to db')
-
 
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
 
-        #record_interval.foreachRDD(lambda x: calculateHR(self.logger, self.postgres_config, self.s3bucket_config, self.a.value, x))
+        record_interval.foreachRDD(lambda x: process_and_save_sample(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
 
-        record_interval.foreachRDD(lambda x: (new_insert_sample(self.logger, self.postgres_config, accum(self.a), x)))
-
-        self.logger.warn('Calculated HR for 2s spark stream mini-batch')
-
+        self.logger.warn('Saved records to DB and S3 and calculated HR for 2s spark stream mini-batch')
 
         self.ssc.start()
         self.logger.warn('Spark context started')
         self.ssc.awaitTermination()
         self.logger.warn('Spark context terminated')
+
 
 if __name__ == '__main__':
     spark_config_infile = '../../.config/spark.config'
@@ -254,7 +212,4 @@ if __name__ == '__main__':
     s3bucket_config_infile = '../../.config/s3bucket.config'
     consumer = SparkConsumer(spark_config_infile, postgres_config_infile, s3bucket_config_infile)
     consumer.run()
-
-
-
 
