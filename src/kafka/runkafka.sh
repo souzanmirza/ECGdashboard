@@ -1,1 +1,1 @@
-bash spawn_kafka_streams.sh ecgdashboard-bucket RECORDS_abridged.txt 52.1.201.90:9092 k1
+bash spawn_kafka_streams.sh ecgdashboard-bucket RECORDS_abridged.txt k1

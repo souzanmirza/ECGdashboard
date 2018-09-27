@@ -1,8 +1,6 @@
 import sys
-from kafka.client import KafkaClient
 from kafka.producer import KafkaProducer
 import boto3
-import lazyreader
 import time
 from datetime import datetime
 sys.path.append('../python/')
@@ -14,9 +12,9 @@ fs = 360
 
 class Producer(object):
 
-    def __init__(self, addr):
+    def __init__(self, ip_addr):
         self.kafka_config = helpers.parse_config('../../.config/kafka.config')
-        self.producer = KafkaProducer(bootstrap_servers=addr)
+        self.producer = KafkaProducer(bootstrap_servers=ip_addr)
         # self.producer = KafkaProducer(value_serializer=lambda v: v.encode('utf-8'),
         #                               bootstrap_servers=addr)
 
@@ -50,7 +48,7 @@ class Producer(object):
 
             s3 = boto3.client('s3')
             obj = s3.get_object(Bucket=self.kafka_config['bucket'],
-                                Key="mghdata_ts/%s_signals.txt" %file_key)
+                                Key="%s_signals.txt" %file_key)
             #for i in range(fs):
                 #time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
             for line in obj['Body'].iter_lines():
