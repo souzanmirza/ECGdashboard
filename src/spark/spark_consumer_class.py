@@ -159,7 +159,7 @@ class SparkConsumer:
         kafkastream = KafkaUtils.createDirectStream(self.ssc, [topic],
                                                 {"metadata.broker.list": self.kafka_config['ip-addr'],
                                                  "group.id": self.spark_config['group-id'],
-                                                 "num.partitions": self.kafka_config['partitions']})
+                                                 "num.partitions": str(self.kafka_config['partitions'])})
         # kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
         #                                             {'metadata.broker.list': self.spark_config['ip-addr'],
         #                                              'group.id': self.spark_config['group-id']})
