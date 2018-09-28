@@ -11,7 +11,7 @@ ipaddr = kafka_config['ip-addr'].split(',')
 #ipaddr = [ip.strip(':9092') for ip in ipaddr]
 s3 = boto3.client('s3')
 obj = s3.get_object(Bucket=s3bucket_config['bucket'],
-                    Key="FAKERECORDS.txt")
+                    Key="RECORDS_abridged.txt")
 records = obj['Body'].read().decode('utf-8').split('\n')
 print(records)
 
