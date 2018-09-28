@@ -52,9 +52,7 @@ def findHR(ts, ecg):
 def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_sample')
 
-    sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
-    sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
- 
+
     def _insert_sample(sqlcmd1, sqlcmd2, signals):
         logger.warn('fxn _insert_sample')
         #print('fxn _insert_sample signals is ', len(list(signals)), type(signals))
@@ -112,6 +110,8 @@ def process_and_save_sample(logger, postgres_config, s3bucket_config, a, record)
         sqlcmd4 = "EXECUTE inserts (%s, %s, %s)"
         _insert_sample(sqlcmd3, sqlcmd4, signals_HR)
     #print(record.take(1))
+    sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
+    sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
     record.foreachPartition(lambda x: _insert_sample(sqlcmd1, sqlcmd2, list(x)))
     record.foreachPartition(_calculateHR)
 
@@ -156,6 +156,7 @@ class SparkConsumer:
         except:
             fromOffsets = None
         # not exactly sure what fromOffsets does
+        print(self.kafka_config) 
         kafkastream = KafkaUtils.createDirectStream(self.ssc, [topic],
                                                 {"metadata.broker.list": self.kafka_config['ip-addr'],
                                                  "group.id": self.spark_config['group-id'],
@@ -206,8 +207,10 @@ class SparkConsumer:
 
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-        
-        print('num rdd is', raw_record.count().pprint())
+        if raw_record is not None:
+            raw_record.pprint()
+        else:
+            print('raw_record is none')
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
         record_interval.foreachRDD(
