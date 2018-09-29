@@ -16,8 +16,8 @@ fs = 360
 class Producer(object):
 
     def __init__(self, ip_addr, kafka_config_infile, s3bucket_config_infile):
-        self.kafka_config = helpers.parse_config(config_dict['kafka_config'])
-        self.s3bucket_config = helpers.parse_config(config_dict['s3bucket_config'])
+        self.kafka_config = helpers.parse_config(kafka_config_infile)
+        self.s3bucket_config = helpers.parse_config(s3bucket_config_infile)
         self.producer = KafkaProducer(bootstrap_servers=ip_addr)
 
     def produce_ecg_signal_msgs(self, file_key):
