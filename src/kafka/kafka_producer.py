@@ -18,14 +18,17 @@ class Producer(object):
         try:
             self.kafka_config = helpers.parse_config(config_dict['kafka_config'])
         except Exception as e:
+            self.kafka_config = None
             print('No kafka config %s' % e)
         try:
             self.s3bucket_config = helpers.parse_config(config_dict['s3bucket_config'])
         except Exception as e:
+            self.s3bucket_config = None
             print('No s3bucket config %s' % e)
         try:
             self.spark_config = helpers.parse_config(config_dict['spark_config'])
         except Exception as e:
+            self.spark_config = None
             print('No spark config %s' % e)
 
         if self.kafka_config is not None:
@@ -59,8 +62,6 @@ class Producer(object):
             print(messagebuffer[np.newaxis:, ], len(messagebuffer))
             time.sleep(0.001)
     '''
-
-
     def produce_ecg_signal_msgs(self, file_key):
         """
         produces messages and sends them to topic
