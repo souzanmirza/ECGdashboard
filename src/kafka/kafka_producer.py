@@ -8,6 +8,7 @@ sys.path.append('../python/')
 import helpers
 import pickle
 import numpy as np
+import json
 
 fs = 360
 
@@ -37,7 +38,7 @@ class Producer(object):
         elif self.spark_config is not None:
             self.topic = self.spark_config['topic']
             self.producer = KafkaProducer(bootstrap_servers=ip_addr,
-                                          value_serializer=lambda x: pickle.dumps(x).encode('utf-8'))
+                                          value_serializer=lambda v: json.dumps(v).encode('utf-8'))
         else:
             print('No topic provided')
             sys.exit()
