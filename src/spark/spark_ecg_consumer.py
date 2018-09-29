@@ -7,7 +7,7 @@ sys.path.append('../kafka/')
 # spark_config = helpers.parse_config('../../.config/spark.config')
 
 # os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-streaming-kafka-0-8_2.11:2.0.2 consumer.py 52.201.50.203:9092 ecg-data'
-
+from kafka.producer import KafkaProducer
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils, TopicAndPartition
@@ -33,7 +33,9 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
     def _insert_samples(sqlcmd1, sqlcmd2, signals):
         logger.warn('fxn _insert_samples')
         for signal in signals:
+            #print(len(signal))
             _sqlcmd1 = sqlcmd1.format(a, signal[0])
+            #print(signal[0], len(signal[1]), signal[1][0])
             try:
                 conn = psycopg2.connect(host=postgres_config['host'],
                                         database=postgres_config['database'],
@@ -41,7 +43,7 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
                                         user=postgres_config['user'],
                                         password=postgres_config['password'])
                 cur = conn.cursor()
-                print(_sqlcmd1)
+                #print(_sqlcmd1)
                 logger.warn(_sqlcmd1)
                 cur.execute(_sqlcmd1)
                 extras.execute_batch(cur, sqlcmd2, signal[1])
@@ -67,16 +69,23 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
     #                                                             a, datetime.now()))
 
 
-def send_samples(logger, ecg_kafka_producer, a, record):
+def send_samples(logger, kafka_config, spark_config, a, record):
     logger.warn('fxn send_samples')
-
+    spark_config_infile = '../../.config/spark.config'
+    
     def _send_samples(signals):
+        print('fxn _send_samples')
+        ecg_kafka_producer = KafkaProducer(bootstrap_servers=kafka_config['ip-addr'].split(','),
+                                          value_serializer=lambda v: json.dumps(v).encode('utf-8'))
         logger.warn('fxn _send_samples')
+        #print('len of signals', len(signals))
         for signal in signals:
-            grouped_signal_samples = [a] + [signal[0]] + signal[1]
-            ecg_kafka_producer.produce_minibatch_msgs(grouped_signal_samples)
+            #print('len of signal is ',len(signal))
+            grouped_signal_samples = {'batchnum': a, 'signame': signal[0], 'samples': signal[1]}
+            print(grouped_signal_samples['batchnum'], grouped_signal_samples['signame'], len(grouped_signal_samples['samples']))
+            ecg_kafka_producer.send(spark_config['topic'], grouped_signal_samples)
             logger.warn('in fxn sent samples to topic')
-
+    #print(type(record.take(1)), len(record.take(1)))
     record.foreachPartition(lambda x: _send_samples(list(x)))
 
 
@@ -99,7 +108,6 @@ class SparkConsumer:
         self.logger.warn('Opened spark Context')
         self.kafkastream = self.connectToKafkaBrokers()
         self.logger.warn('Opened connection to Kafka brokers')
-        self.ecg_kafka_producer = kafka_producer.Producer(self.kafka_config['ip-addr'].split(','), {'spark_config': spark_config_infile})
         self.a = self.sc.accumulator(0)
         self.setupDB()
 
@@ -167,16 +175,17 @@ class SparkConsumer:
 
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-        if raw_record is not None:
-            raw_record.pprint()
-        else:
-            print('raw_record is none')
+        #if raw_record is not None:
+            #raw_record.pprint()
+        #else:
+            #print('raw_record is none')
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
-        record_interval.foreachRDD(lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
+        #record_interval.pprint(1)
+        #record_interval.foreachRDD(lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
         self.logger.warn('Saved records to DB')
 
-        record_interval.foreachRDD(lambda x: send_samples(self.logger, self.ecg_kafka_producer, self.a.value, x))
+        record_interval.foreachRDD(lambda x: send_samples(self.logger, self.kafka_config, self.spark_config, self.a.value, x))
         self.logger.warn('Sent samples to kafka topic')
 
 
