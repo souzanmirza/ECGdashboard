@@ -17,8 +17,7 @@ import psycopg2
 import psycopg2.extras as extras
 import helpers
 import logging
-import kafka_producer
-
+import json
 
 def accum(a):
     a.add(1)
@@ -61,7 +60,7 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
     record.foreachPartition(lambda x: _insert_samples(sqlcmd1, sqlcmd2, list(x)))
 
 
-    # record.repartition(1).saveAsTextFile(
+    #record.repartition(1).saveAsTextFile(
     #     "s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".format(s3bucket_config['aws_access_key_id'],
     #                                                             s3bucket_config['aws_secret_access_key'],
     #                                                             s3bucket_config['bucket'],
