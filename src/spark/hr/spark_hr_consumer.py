@@ -116,14 +116,14 @@ def process_sample(logger, postgres_config, s3bucket_config, a, record):
 
 class SparkConsumer:
 
-    def __init__(self, kafka_config_infile, spark_config_infile, postgres_config_infile, s3bucket_config_infile):
+    def __init__(self, kafka_config_infile, hr_spark_config_infile, postgres_config_infile, s3bucket_config_infile):
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s',
                             filename='./tmp/spark_consumer.log',
                             filemode='w')
         self.logger = logging.getLogger('py4j')
         self.logger.setLevel(logging.WARN)
-        self.spark_config = helpers.parse_config(spark_config_infile)
+        self.spark_config = helpers.parse_config(hr_spark_config_infile)
         self.postgres_config = helpers.parse_config(postgres_config_infile)
         self.s3bucket_config = helpers.parse_config(s3bucket_config_infile)
         self.kafka_config = helpers.parse_config(kafka_config_infile)
@@ -142,17 +142,10 @@ class SparkConsumer:
         self.logger.warn('Spark context terminated')
 
     def openKafka(self):
-        topic, n = self.kafka_config["topic"], self.kafka_config["partitions"]
-        try:
-            fromOffsets = {TopicAndPartition(topic, i): long(0) for i in range(n)}
-        except:
-            fromOffsets = None
-        # not exactly sure what fromOffsets does
-        print(self.kafka_config)
-        kafkastream = KafkaUtils.createDirectStream(self.ssc, [topic],
+        kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
                                                 {"metadata.broker.list": self.kafka_config['ip-addr'],
                                                  "group.id": self.spark_config['group-id'],
-                                                 "num.partitions": str(self.spark_config['partitions']),
+                                                 "num.partitions": str(self.kafka_config['partitions']),
                                                  "value_deserializer": str(lambda m: json.loads(m.decode('utf-8')))})
         # kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
         #                                             {'metadata.broker.list': self.spark_config['ip-addr'],
@@ -218,10 +211,10 @@ class SparkConsumer:
 
 
 if __name__ == '__main__':
-    spark_config_infile = '../../.config/spark.config'
+    hr_spark_config_infile = '../../.config/hrspark.config'
     kafka_config_infile = '../../.config/kafka.config'
     postgres_config_infile = '../../.config/postgres.config'
     s3bucket_config_infile = '../../.config/s3bucket.config'
-    consumer = SparkConsumer(kafka_config_infile, spark_config_infile, postgres_config_infile, s3bucket_config_infile)
+    consumer = SparkConsumer(kafka_config_infile, hr_spark_config_infile, postgres_config_infile, s3bucket_config_infile)
     consumer.run()
 

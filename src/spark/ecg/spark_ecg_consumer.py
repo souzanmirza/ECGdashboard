@@ -1,18 +1,12 @@
-import os
 import sys
 
-sys.path.append('../python/')
-sys.path.append('../kafka/')
+sys.path.append('../../python/')
+sys.path.append('../../kafka/')
 
-# ecg_spark_config = helpers.parse_config('../../.config/spark.config')
-
-# os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-streaming-kafka-0-8_2.11:2.0.2 consumer.py 52.201.50.203:9092 ecg-data'
 from kafka.producer import KafkaProducer
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils, TopicAndPartition
-from datetime import datetime
-import numpy as np
 import psycopg2
 import psycopg2.extras as extras
 import helpers
@@ -113,14 +107,7 @@ class SparkConsumer:
         self.logger.warn('Spark context terminated')
 
     def connectToKafkaBrokers(self):
-        topic, n = self.kafka_config["topic"], self.kafka_config["partitions"]
-        try:
-            fromOffsets = {TopicAndPartition(topic, i): long(0) for i in range(n)}
-        except:
-            fromOffsets = None
-        # not exactly sure what fromOffsets does
-        print(self.kafka_config)
-        kafkastream = KafkaUtils.createDirectStream(self.ssc, [topic],
+        kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.kafka_config["topic"]],
                                                     {"metadata.broker.list": self.kafka_config['ip-addr'],
                                                      "group.id": self.ecg_spark_config['group-id'],
                                                      "num.partitions": str(self.kafka_config['partitions'])})
@@ -167,23 +154,23 @@ class SparkConsumer:
     def run(self):
         lines = self.kafkastream.map(lambda x: x[1])
         self.logger.warn('Reading in kafka stream line')
-
-        raw_record = lines.map(lambda line: line.encode('utf-8')). \
-            map(lambda line: line.split(','))
-        if raw_record is not None:
-            raw_record.pprint()
-        else:
-            print('raw_record is none')
-        record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
-            groupByKey().map(lambda x: (x[0], list(x[1])))
-        # record_interval.pprint(1)
-        record_interval.foreachRDD(
-            lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
-        self.logger.warn('Saved records to DB')
-
-        record_interval.foreachRDD(
-            lambda x: send_samples(self.logger, self.kafka_config, self.ecg_spark_config, self.a.value, x))
-        self.logger.warn('Sent samples to kafka topic')
+        lines.pprint()
+        # raw_record = lines.map(lambda line: line.encode('utf-8')). \
+        #     map(lambda line: line.split(','))
+        # if raw_record is not None:
+        #     raw_record.pprint()
+        # else:
+        #     print('raw_record is none')
+        # record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
+        #     groupByKey().map(lambda x: (x[0], list(x[1])))
+        # # record_interval.pprint(1)
+        # record_interval.foreachRDD(
+        #     lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
+        # self.logger.warn('Saved records to DB')
+        #
+        # record_interval.foreachRDD(
+        #     lambda x: send_samples(self.logger, self.kafka_config, self.ecg_spark_config, self.a.value, x))
+        # self.logger.warn('Sent samples to kafka topic')
 
         self.ssc.start()
         self.logger.warn('Spark context started')
@@ -192,10 +179,10 @@ class SparkConsumer:
 
 
 if __name__ == '__main__':
-    ecg_spark_config_infile = '../../.config/ecgspark.config'
-    kafka_config_infile = '../../.config/kafka.config'
-    postgres_config_infile = '../../.config/postgres.config'
-    s3bucket_config_infile = '../../.config/s3bucket.config'
+    ecg_spark_config_infile = '../../../.config/ecgspark.config'
+    kafka_config_infile = '../../../.config/kafka.config'
+    postgres_config_infile = '../../../.config/postgres.config'
+    s3bucket_config_infile = '../../../.config/s3bucket.config'
     consumer = SparkConsumer(kafka_config_infile, ecg_spark_config_infile, postgres_config_infile,
                              s3bucket_config_infile)
     consumer.run()
