@@ -4,7 +4,7 @@ num_instances: 3
 key_name: souzan-iam-keypair
 security_group_ids: sg-0e9978aec8f6fcb80
 instance_type: m4.large
-tag_name: kafka-cluster
+tag_name: spark-hr-cluster
 vol_size: 100
 role: worker
 use_eips: true

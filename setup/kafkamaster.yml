@@ -1,5 +1,5 @@
 purchase_type: on_demand
-subnet_id: subnet-087c88e723c353b48
+subnet_id: subnet-015405f53e806a38a
 num_instances: 1
 key_name: souzan-iam-keypair
 security_group_ids: sg-0e9978aec8f6fcb80
