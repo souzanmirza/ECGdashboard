@@ -4,7 +4,7 @@ import sys
 sys.path.append('../python/')
 sys.path.append('../kafka/')
 
-# spark_config = helpers.parse_config('../../.config/spark.config')
+# ecg_spark_config = helpers.parse_config('../../.config/spark.config')
 
 # os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-streaming-kafka-0-8_2.11:2.0.2 consumer.py 52.201.50.203:9092 ecg-data'
 from kafka.producer import KafkaProducer
@@ -19,6 +19,7 @@ import helpers
 import logging
 import json
 
+
 def accum(a):
     a.add(1)
     return a.value
@@ -27,13 +28,12 @@ def accum(a):
 def insert_samples(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_samples')
 
-
     def _insert_samples(sqlcmd1, sqlcmd2, signals):
         logger.warn('fxn _insert_samples')
         for signal in signals:
-            #print(len(signal))
+            # print(len(signal))
             _sqlcmd1 = sqlcmd1.format(a, signal[0])
-            #print(signal[0], len(signal[1]), signal[1][0])
+            # print(signal[0], len(signal[1]), signal[1][0])
             try:
                 conn = psycopg2.connect(host=postgres_config['host'],
                                         database=postgres_config['database'],
@@ -41,7 +41,7 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
                                         user=postgres_config['user'],
                                         password=postgres_config['password'])
                 cur = conn.cursor()
-                #print(_sqlcmd1)
+                # print(_sqlcmd1)
                 logger.warn(_sqlcmd1)
                 cur.execute(_sqlcmd1)
                 extras.execute_batch(cur, sqlcmd2, signal[1])
@@ -52,51 +52,48 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
             except Exception as e:
                 logger.warn('Exception %s' % e)
 
-
-
-    #print(record.take(1))
+    # print(record.take(1))
     sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
     sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
     record.foreachPartition(lambda x: _insert_samples(sqlcmd1, sqlcmd2, list(x)))
 
-
-    #record.repartition(1).saveAsTextFile(
+    # record.repartition(1).saveAsTextFile(
     #     "s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".format(s3bucket_config['aws_access_key_id'],
     #                                                             s3bucket_config['aws_secret_access_key'],
     #                                                             s3bucket_config['bucket'],
     #                                                             a, datetime.now()))
 
 
-def send_samples(logger, kafka_config, spark_config, a, record):
+def send_samples(logger, kafka_config, ecg_spark_config, a, record):
     logger.warn('fxn send_samples')
-    spark_config_infile = '../../.config/spark.config'
-    
+
     def _send_samples(signals):
-        #print('fxn _send_samples')
+        # print('fxn _send_samples')
         ecg_kafka_producer = KafkaProducer(bootstrap_servers=kafka_config['ip-addr'].split(','),
-                                          value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+                                           value_serializer=lambda v: json.dumps(v).encode('utf-8'))
         logger.warn('fxn _send_samples')
-        #print('len of signals', len(signals))
+        # print('len of signals', len(signals))
         for signal in signals:
-            #print('len of signal is ',len(signal))
+            # print('len of signal is ',len(signal))
             grouped_signal_samples = {'batchnum': a, 'signame': signal[0], 'samples': signal[1]}
-            #print(grouped_signal_samples['batchnum'], grouped_signal_samples['signame'], len(grouped_signal_samples['samples']))
-            ecg_kafka_producer.send(spark_config['topic'], grouped_signal_samples)
+            # print(grouped_signal_samples['batchnum'], grouped_signal_samples['signame'], len(grouped_signal_samples['samples']))
+            ecg_kafka_producer.send(ecg_spark_config['topic'], grouped_signal_samples)
             logger.warn('in fxn sent samples to topic')
-    #print(type(record.take(1)), len(record.take(1)))
+
+    # print(type(record.take(1)), len(record.take(1)))
     record.foreachPartition(lambda x: _send_samples(list(x)))
 
 
 class SparkConsumer:
 
-    def __init__(self, kafka_config_infile, spark_config_infile, postgres_config_infile, s3bucket_config_infile):
+    def __init__(self, kafka_config_infile, ecg_spark_config_infile, postgres_config_infile, s3bucket_config_infile):
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s',
                             filename='./tmp/spark_consumer.log',
                             filemode='w')
         self.logger = logging.getLogger('py4j')
         self.logger.setLevel(logging.WARN)
-        self.spark_config = helpers.parse_config(spark_config_infile)
+        self.ecg_spark_config = helpers.parse_config(ecg_spark_config_infile)
         self.postgres_config = helpers.parse_config(postgres_config_infile)
         self.s3bucket_config = helpers.parse_config(s3bucket_config_infile)
         self.kafka_config = helpers.parse_config(kafka_config_infile)
@@ -124,12 +121,12 @@ class SparkConsumer:
         # not exactly sure what fromOffsets does
         print(self.kafka_config)
         kafkastream = KafkaUtils.createDirectStream(self.ssc, [topic],
-                                                {"metadata.broker.list": self.kafka_config['ip-addr'],
-                                                 "group.id": self.spark_config['group-id'],
-                                                 "num.partitions": str(self.kafka_config['partitions'])})
-        # kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
-        #                                             {'metadata.broker.list': self.spark_config['ip-addr'],
-        #                                              'group.id': self.spark_config['group-id']})
+                                                    {"metadata.broker.list": self.kafka_config['ip-addr'],
+                                                     "group.id": self.ecg_spark_config['group-id'],
+                                                     "num.partitions": str(self.kafka_config['partitions'])})
+        # kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.ecg_spark_config['topic']],
+        #                                             {'metadata.broker.list': self.ecg_spark_config['ip-addr'],
+        #                                              'group.id': self.ecg_spark_config['group-id']})
         self.logger.warn('Connected kafka stream to spark context')
         return kafkastream
 
@@ -179,13 +176,14 @@ class SparkConsumer:
             print('raw_record is none')
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
-        #record_interval.pprint(1)
-        record_interval.foreachRDD(lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
+        # record_interval.pprint(1)
+        record_interval.foreachRDD(
+            lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
         self.logger.warn('Saved records to DB')
 
-        record_interval.foreachRDD(lambda x: send_samples(self.logger, self.kafka_config, self.spark_config, self.a.value, x))
+        record_interval.foreachRDD(
+            lambda x: send_samples(self.logger, self.kafka_config, self.ecg_spark_config, self.a.value, x))
         self.logger.warn('Sent samples to kafka topic')
-
 
         self.ssc.start()
         self.logger.warn('Spark context started')
@@ -194,10 +192,10 @@ class SparkConsumer:
 
 
 if __name__ == '__main__':
-    spark_config_infile = '../../.config/spark.config'
+    ecg_spark_config_infile = '../../.config/ecgspark.config'
     kafka_config_infile = '../../.config/kafka.config'
     postgres_config_infile = '../../.config/postgres.config'
     s3bucket_config_infile = '../../.config/s3bucket.config'
-    consumer = SparkConsumer(kafka_config_infile, spark_config_infile, postgres_config_infile, s3bucket_config_infile)
+    consumer = SparkConsumer(kafka_config_infile, ecg_spark_config_infile, postgres_config_infile,
+                             s3bucket_config_infile)
     consumer.run()
-
