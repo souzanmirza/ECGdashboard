@@ -35,7 +35,7 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
                                         user=postgres_config['user'],
                                         password=postgres_config['password'])
                 cur = conn.cursor()
-                # print(_sqlcmd1)
+                print(_sqlcmd1)
                 logger.warn(_sqlcmd1)
                 cur.execute(_sqlcmd1)
                 extras.execute_batch(cur, sqlcmd2, signal[1])
@@ -70,7 +70,7 @@ def send_samples(logger, kafka_config, ecg_spark_config, a, record):
         for signal in signals:
             # print('len of signal is ',len(signal))
             grouped_signal_samples = {'batchnum': a, 'signame': signal[0], 'samples': signal[1]}
-            # print(grouped_signal_samples['batchnum'], grouped_signal_samples['signame'], len(grouped_signal_samples['samples']))
+            print(grouped_signal_samples['batchnum'], grouped_signal_samples['signame'], len(grouped_signal_samples['samples']), ecg_spark_config['topic'])
             ecg_kafka_producer.send(ecg_spark_config['topic'], grouped_signal_samples)
             logger.warn('in fxn sent samples to topic')
 
@@ -154,23 +154,21 @@ class SparkConsumer:
     def run(self):
         lines = self.kafkastream.map(lambda x: x[1])
         self.logger.warn('Reading in kafka stream line')
-        lines.pprint()
-        # raw_record = lines.map(lambda line: line.encode('utf-8')). \
-        #     map(lambda line: line.split(','))
-        # if raw_record is not None:
-        #     raw_record.pprint()
-        # else:
-        #     print('raw_record is none')
-        # record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
-        #     groupByKey().map(lambda x: (x[0], list(x[1])))
-        # # record_interval.pprint(1)
-        # record_interval.foreachRDD(
-        #     lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
-        # self.logger.warn('Saved records to DB')
-        #
-        # record_interval.foreachRDD(
-        #     lambda x: send_samples(self.logger, self.kafka_config, self.ecg_spark_config, self.a.value, x))
-        # self.logger.warn('Sent samples to kafka topic')
+        raw_record = lines.map(lambda line: line.encode('utf-8')). \
+            map(lambda line: line.split(','))
+        if raw_record is not None:
+            raw_record.pprint()
+        else:
+            print('raw_record is none')
+        record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
+            groupByKey().map(lambda x: (x[0], list(x[1])))
+        record_interval.foreachRDD(
+            lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
+        self.logger.warn('Saved records to DB')
+        
+        record_interval.foreachRDD(
+            lambda x: send_samples(self.logger, self.kafka_config, self.ecg_spark_config, self.a.value, x))
+        self.logger.warn('Sent samples to kafka topic')
 
         self.ssc.start()
         self.logger.warn('Spark context started')
