@@ -33,7 +33,9 @@ def findHR(ts, ecg):
     if maxpeak > 0:
         locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
         if len(locs) > 1:
+            print('num of peaks is: ', len(locs))
             Rpeaks_ts = ts[locs]
+            print(Rpeaks_ts)
             diff_ts = np.diff(Rpeaks_ts)
             bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
             bpm = bps * 60
@@ -48,6 +50,7 @@ def findHR(ts, ecg):
     else:
         # self.logger.debug('Invalid HR returned')
         return -1
+
 
 
 def process_sample(logger, postgres_config, s3bucket_config, a, record):
@@ -91,9 +94,10 @@ def process_sample(logger, postgres_config, s3bucket_config, a, record):
             # print('x', len(x), type(x))
             signame = str(x[0])
             signal = np.array(x[1])
+            signal[np.argsort(signal[:, 0])]
             ts_str = signal[:, 0]
             if len(ts_str) > 3:
-                # print('passed: ', ts_str.shape)
+                print('passed: ', ts_str.shape)
                 ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
                 ts_datetime = np.array(ts_datetime)
                 ecg1 = np.array(signal[:, 1]).astype(float)
@@ -102,7 +106,7 @@ def process_sample(logger, postgres_config, s3bucket_config, a, record):
                 ecg3 = np.array(signal[:, 3]).astype(float)
                 logger.warn("calling findhr")
                 sampleHR = (signame, [[findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]])
-                #print(sampleHR)
+                print(sampleHR)
                 signals_HR.append(sampleHR)
         else:
             logger.debug('No HR returned')
