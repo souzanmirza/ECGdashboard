@@ -33,12 +33,16 @@ def findHR(ts, ecg):
     if maxpeak > 0:
         locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
         if len(locs) > 1:
-            print('num of peaks is: ', len(locs))
+            print('num of peaks is: ', len(locs), ' num of unique peaks are ', len(np.unique(locs)))
+            print(ecg[locs])
             Rpeaks_ts = ts[locs]
-            print(Rpeaks_ts)
+            Rpeaks_ts.sort()
+            print(Rpeaks_ts[-1], Rpeaks_ts[0], (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
             diff_ts = np.diff(Rpeaks_ts)
+            print(diff_ts)
             bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
-            bpm = bps * 60
+            bpm = len(Rpeaks_ts) * (60 / (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
+            
             if bpm > 0:
                 return int(bpm)
             else:
@@ -94,10 +98,11 @@ def process_sample(logger, postgres_config, s3bucket_config, a, record):
             # print('x', len(x), type(x))
             signame = str(x[0])
             signal = np.array(x[1])
-            signal[np.argsort(signal[:, 0])]
+            #signal[np.argsort(signal[:, 0])]
             ts_str = signal[:, 0]
+            #print(signal)
             if len(ts_str) > 3:
-                print('passed: ', ts_str.shape)
+                #print('passed: ', ts_str.shape)
                 ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
                 ts_datetime = np.array(ts_datetime)
                 ecg1 = np.array(signal[:, 1]).astype(float)
@@ -160,10 +165,10 @@ class SparkConsumer:
         self.logger.warn('Reading in kafka stream line')
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-        if raw_record is not None:
-            raw_record.pprint()
-        else:
-            print('raw_record is none')
+        #if raw_record is not None:
+        #    raw_record.pprint()
+        #else:
+        #    print('raw_record is none')
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
         record_interval.foreachRDD(
