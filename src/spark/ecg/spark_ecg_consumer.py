@@ -12,6 +12,7 @@ import psycopg2.extras as extras
 import helpers
 import logging
 import json
+import pickle
 
 
 def accum(a):
@@ -58,24 +59,24 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
     #                                                             a, datetime.now()))
 
 
-def send_samples(logger, kafka_config, ecg_spark_config, a, record):
-    logger.warn('fxn send_samples')
-
-    def _send_samples(signals):
-        # print('fxn _send_samples')
-        ecg_kafka_producer = KafkaProducer(bootstrap_servers=kafka_config['ip-addr'].split(','),
-                                           value_serializer=lambda v: json.dumps(v).encode('utf-8'))
-        logger.warn('fxn _send_samples')
-        # print('len of signals', len(signals))
-        for signal in signals:
-            # print('len of signal is ',len(signal))
-            grouped_signal_samples = {'batchnum': a, 'signame': signal[0], 'samples': signal[1]}
-            print(grouped_signal_samples['batchnum'], grouped_signal_samples['signame'], len(grouped_signal_samples['samples']), ecg_spark_config['topic'])
-            ecg_kafka_producer.send(ecg_spark_config['topic'], grouped_signal_samples)
-            logger.warn('in fxn sent samples to topic')
-
-    # print(type(record.take(1)), len(record.take(1)))
-    record.foreachPartition(lambda x: _send_samples(list(x)))
+# def send_samples(logger, kafka_config, ecg_spark_config, a, record):
+#     logger.warn('fxn send_samples')
+#
+#     def _send_samples(signals):
+#         # print('fxn _send_samples')
+#         ecg_kafka_producer = KafkaProducer(bootstrap_servers=kafka_config['ip-addr'].split(','),
+#                                            value_serializer=lambda v: pickle.dumps(v).encode('utf-8'))
+#         logger.warn('fxn _send_samples')
+#         # print('len of signals', len(signals))
+#         for signal in signals:
+#             # print('len of signal is ',len(signal))
+#             grouped_signal_samples = {'batchnum': a, 'signame': signal[0], 'samples': signal[1]}
+#             print(grouped_signal_samples['batchnum'], grouped_signal_samples['signame'], len(grouped_signal_samples['samples']), ecg_spark_config['topic'])
+#             ecg_kafka_producer.send(ecg_spark_config['topic'], grouped_signal_samples)
+#             logger.warn('in fxn sent samples to topic')
+#
+#     # print(type(record.take(1)), len(record.take(1)))
+#     record.foreachPartition(lambda x: _send_samples(list(x)))
 
 
 class SparkConsumer:
@@ -166,9 +167,9 @@ class SparkConsumer:
             lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
         self.logger.warn('Saved records to DB')
         
-        record_interval.foreachRDD(
-            lambda x: send_samples(self.logger, self.kafka_config, self.ecg_spark_config, self.a.value, x))
-        self.logger.warn('Sent samples to kafka topic')
+        # record_interval.foreachRDD(
+        #     lambda x: send_samples(self.logger, self.kafka_config, self.ecg_spark_config, self.a.value, x))
+        # self.logger.warn('Sent samples to kafka topic')
 
         self.ssc.start()
         self.logger.warn('Spark context started')
