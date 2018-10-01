@@ -1,7 +1,7 @@
 import os
 import sys
 
-sys.path.append('../python/')
+sys.path.append('../../python/')
 
 # spark_config = helpers.parse_config('../../.config/spark.config')
 
@@ -129,7 +129,7 @@ class SparkConsumer:
         self.kafka_config = helpers.parse_config(kafka_config_infile)
         self.sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
         self.sc.setLogLevel("FATAL")
-        self.ssc = StreamingContext(self.sc, 2)
+        self.ssc = StreamingContext(self.sc, 10)
         self.logger.warn('Opened spark Context')
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
@@ -142,7 +142,7 @@ class SparkConsumer:
         self.logger.warn('Spark context terminated')
 
     def openKafka(self):
-        kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
+        kafkastream = KafkaUtils.createDirectStream(self.ssc, ['hr-topic'],
                                                 {"metadata.broker.list": self.kafka_config['ip-addr'],
                                                  "group.id": self.spark_config['group-id'],
                                                  "num.partitions": str(self.kafka_config['partitions']),
@@ -189,13 +189,20 @@ class SparkConsumer:
 
     def run(self):
         lines = self.kafkastream.map(lambda x: x[1])
+        raw_record = lines.map(lambda line: line.encode('utf-8')). \
+            map(lambda line: line.split(','))
         self.logger.warn('Reading in kafka stream line')
-
-        raw_record = lines.map(lambda line: (line['batchnum'], line['signame'], line['signals']))
-        if raw_record is not None:
-            raw_record.pprint()
-        else:
-            print('raw_record is none')
+        raw_record.pprint(1)
+        record = raw_record.map(lambda x: x['signame'])
+        record.pprint(1)
+         
+        #lines.pprint(1)
+        #lines.foreachRDD(lambda x: print(type(x.take(1))))
+        #raw_record = lines.map(lambda line: (line[1], line[3], line[5]))
+        #if raw_record is not None:
+            #raw_record.pprint(1)
+        #else:
+            #print('raw_record is none')
         # record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
         #     groupByKey().map(lambda x: (x[0], list(x[1])))
         # record_interval.foreachRDD(
