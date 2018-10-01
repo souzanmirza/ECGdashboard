@@ -142,7 +142,7 @@ class SparkConsumer:
         self.logger.warn('Spark context terminated')
 
     def openKafka(self):
-        kafkastream = KafkaUtils.createDirectStream(self.ssc, ['hr-topic'],
+        kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.kafka_config['topic']],
                                                 {"metadata.broker.list": self.kafka_config['ip-addr'],
                                                  "group.id": self.spark_config['group-id'],
                                                  "num.partitions": str(self.kafka_config['partitions']),
@@ -189,27 +189,18 @@ class SparkConsumer:
 
     def run(self):
         lines = self.kafkastream.map(lambda x: x[1])
+        self.logger.warn('Reading in kafka stream line')
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-        self.logger.warn('Reading in kafka stream line')
-        raw_record.pprint(1)
-        record = raw_record.map(lambda x: x['signame'])
-        record.pprint(1)
-         
-        #lines.pprint(1)
-        #lines.foreachRDD(lambda x: print(type(x.take(1))))
-        #raw_record = lines.map(lambda line: (line[1], line[3], line[5]))
-        #if raw_record is not None:
-            #raw_record.pprint(1)
-        #else:
-            #print('raw_record is none')
-        # record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
-        #     groupByKey().map(lambda x: (x[0], list(x[1])))
-        # record_interval.foreachRDD(
-        #     lambda x: process_sample(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a),
-        #                                       x))
-
-        self.logger.warn('Saved records to DB and S3 and calculated HR for 2s spark stream mini-batch')
+        if raw_record is not None:
+            raw_record.pprint()
+        else:
+            print('raw_record is none')
+        record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
+            groupByKey().map(lambda x: (x[0], list(x[1])))
+        record_interval.foreachRDD(
+            lambda x: process_sample(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
+        self.logger.warn('Saved records to DB')
 
         self.ssc.start()
         self.logger.warn('Spark context started')
