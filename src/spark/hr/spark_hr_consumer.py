@@ -133,7 +133,6 @@ class SparkConsumer:
         self.logger.warn('Opened spark Context')
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
-        self.setupDB()
 
     def start(self):
         self.ssc.start()
@@ -145,47 +144,12 @@ class SparkConsumer:
         kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.kafka_config['topic']],
                                                 {"metadata.broker.list": self.kafka_config['ip-addr'],
                                                  "group.id": self.spark_config['group-id'],
-                                                 "num.partitions": str(self.kafka_config['partitions']),
-                                                 "value_deserializer": str(lambda m: json.loads(m.decode('utf-8')))})
+                                                 "num.partitions": str(self.kafka_config['partitions'])})
         # kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.spark_config['topic']],
         #                                             {'metadata.broker.list': self.spark_config['ip-addr'],
         #                                              'group.id': self.spark_config['group-id']})
         self.logger.warn('Connected kafka stream to spark context')
         return kafkastream
-
-    def setupDB(self):
-        self.logger.warn("Setting up DB tables")
-        try:
-            conn = psycopg2.connect(host=self.postgres_config['host'],
-                                    database=self.postgres_config['database'],
-                                    port=self.postgres_config['port'],
-                                    user=self.postgres_config['user'],
-                                    password=self.postgres_config['password'])
-            cur = conn.cursor()
-            # print(self.postgres_config)
-            cur.execute("CREATE TABLE IF NOT EXISTS signal_samples (id serial PRIMARY KEY,\
-                                                       batchnum int NOT NULL, \
-                                                       signame varchar(50) NOT NULL, \
-                                                       time timestamp NOT NULL, \
-                                                       ecg1 float(6) NOT NULL, \
-                                                       ecg2 float(6) NOT NULL, \
-                                                       ecg3 float(6) NOT NULL);")
-            # print("created signal_samples table")
-            cur.execute("CREATE INDEX IF NOT EXISTS signal_samples_idx ON signal_samples (signame, time);")
-            cur.execute("CREATE TABLE IF NOT EXISTS inst_hr (id serial PRIMARY KEY, \
-                                                           batchnum int NOT NULL, \
-                                                           signame varchar(50) NOT NULL, \
-                                                           hr1 float(1) NOT NULL, \
-                                                           hr2 float(1) NOT NULL, \
-                                                           hr3 float(1) NOT NULL);")
-            cur.execute("CREATE INDEX IF NOT EXISTS inst_hr_idx ON inst_hr (batchnum, signame);")
-            # print("created inst_hr table")
-            conn.commit()
-            cur.close()
-            conn.close()
-            self.logger.warn("Done setting up DB tables")
-        except Exception as e:
-            self.logger.warn('Exception %s' % e)
 
     def run(self):
         lines = self.kafkastream.map(lambda x: x[1])
