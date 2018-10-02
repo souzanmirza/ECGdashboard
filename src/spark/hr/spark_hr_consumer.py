@@ -67,15 +67,8 @@ def findHR(ecg, fs, weight=0.1, threshold=0.2):
 #    else:
 #        return -1
 
-def process_sample(logger, postgres_config, s3bucket_config, a, record):
+def process_sample(logger, postgres_config, a, fs, record):
     logger.warn('fxn insert_sample')
-    s3 = boto3.client('s3')
-    obj = s3.get_object(Bucket=s3bucket_config['bucket'],
-                        Key="%mgh001_metadata.txt" )
-    file_content = obj.get()['Body'].read().decode('utf-8')
-    meta_data = json.loads(file_content)
-    fs = meta_data['fs']
-
 
     def _insert_sample(sqlcmd1, sqlcmd2, signals):
         logger.warn('fxn _insert_sample')
@@ -161,7 +154,7 @@ class SparkConsumer:
         self.kafka_config = helpers.parse_config(kafka_config_infile)
         self.sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
         self.sc.setLogLevel("FATAL")
-        self.ssc = StreamingContext(self.sc, 60)
+        self.ssc = StreamingContext(self.sc, 10)
         self.logger.warn('Opened spark Context')
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
@@ -184,6 +177,12 @@ class SparkConsumer:
         return kafkastream
 
     def run(self):
+        s3 = boto3.client('s3')
+        obj = s3.get_object(Bucket=self.s3bucket_config['bucket'],
+                        Key="mgh001_metadata.txt" )
+        file_content = obj['Body'].read().decode('utf-8')
+        meta_data = json.loads(file_content)
+        fs = meta_data['fs']
         lines = self.kafkastream.map(lambda x: x[1])
         self.logger.warn('Reading in kafka stream line')
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
@@ -195,7 +194,7 @@ class SparkConsumer:
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
         record_interval.foreachRDD(
-            lambda x: process_sample(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
+            lambda x: process_sample(self.logger, self.postgres_config, accum(self.a), fs, x))
         self.logger.warn('Saved records to DB')
 
         self.ssc.start()
