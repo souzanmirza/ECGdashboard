@@ -12,91 +12,21 @@ import psycopg2
 import psycopg2.extras as extras
 import helpers
 import logging
-import scipy.signal as signal
+import biosppy
 
 
 
 def accum(a):
     a.add(1)
     return a.value
-
-def filterECG(ecg):
-    ''' remove baseline'''
-    fftecg=np.fft.fft(ecg)
-    step=500.0/len(fftecg) # which is this 500?
-    s=int(4./step)
-    fftecg[0:s]=0
-    ecg_b=(np.fft.ifft(fftecg)).real
-    """ highpass filter ecg signal with cutoff frequency """
-    b, a = signal.cheby1(2, 1, 2.0/250, 'highpass') # low frequency signals ie gross body movement
-    ecg=signal.lfilter(b, a, ecg_b)
-    b, a = signal.cheby1(2, 1, 60.0/250, 'lowpass') # 60Hz power lines
-    return signal.lfilter(b, a, ecg)
-
-
-#def findHR(ts, ecg, weight):
-#    # self.logger.warn('fxn findHR')
-#    '''detect HR using avg of R-R intervals'''
-#    ecg = filterECG(ecg)
-#    maxpeak = weight * max(ecg)
-#    if maxpeak > 0:
-#        locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
-#        if len(locs) > 1:
-#            #print('num of peaks is: ', len(locs), ' num of unique peaks are ', len(np.unique(locs)))
-#            #print(ecg[locs])
-#            Rpeaks_ts = ts[locs]
-#            Rpeaks_ts.sort()
-#            #print(Rpeaks_ts[-1], Rpeaks_ts[0], (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
-#            # diff_ts = np.diff(Rpeaks_ts)
-#            # #print(diff_ts)
-#            # bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
-#            bpm = len(Rpeaks_ts) * (60 / (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
-#            
-#            if bpm > 0:
-#                return int(bpm)
-#            else:
-#                # self.logger.debug('Invalid HR returned')
-#                return -1
-#        else:
-#            # self.logger.debug('Invalid HR returned')
-#            return -1
-#    else:
-#        # self.logger.debug('Invalid HR returned')
-#        return -1
     
-def findHR(ts, ecg, weight=0.33, threshold=0.5):
-    # self.logger.warn('fxn findHR')
-    '''detect HR using avg of R-R intervals'''
-    ecg = filterECG(ecg)
-    maxpeak = max(weight * max(ecg), threshold)
-    if maxpeak > 0:
-        print('maxpeak: ', maxpeak)
-        locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
-        if len(locs) > 1:
-            Rpeaks_ts = ts[locs]
-            Rpeaks_ts.sort()
-            print('max time ', (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
-            print('number of Rpeaks ', len(Rpeaks_ts))
-            bpm = len(Rpeaks_ts) * (60 / (ts[-1] - ts[0]).total_seconds())
-            #print('num of peaks is: ', len(locs), ' num of unique peaks are ', len(np.unique(locs)))
-            #Rpeaks_ts = ts[locs]
-            #Rpeaks_ts.sort()
-#            print(Rpeaks_ts[-1], Rpeaks_ts[0], (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
-            #diff_ts = np.diff(Rpeaks_ts)
-            #bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
-            #bpm = 60 * bps
-
-            if bpm > 0:
-                return int(bpm)
-            else:
-                return -1
-        else:
-            return -1
+def findHR(ecg, fs):
+    output = biosppy.signals.ecg.ecg(ecg, sampling_rate=fs, show=False).as_dict()
+    average_hr = np.average(output['heart_rate'])
+    if average_hr > 0:
+        return average_hr
     else:
         return -1
-
-
-
 
 def process_sample(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_sample')
@@ -141,6 +71,7 @@ def process_sample(logger, postgres_config, s3bucket_config, a, record):
             signal = np.array(x[1])
             #signal[np.argsort(signal[:, 0])]
             ts_str = signal[:, 0]
+            fs = 1/(datetime.strptime(ts_str[1], '%Y-%m-%d %H:%M:%S.%f') - datetime.strptime(ts_str[0], '%Y-%m-%d %H:%M:%S.%f')).total_seconds()
             #print(signal)
             if len(ts_str) > 3:
                 #print('passed: ', ts_str.shape)
@@ -151,7 +82,7 @@ def process_sample(logger, postgres_config, s3bucket_config, a, record):
                 ecg2 = np.array(signal[:, 2]).astype(float)
                 ecg3 = np.array(signal[:, 3]).astype(float)
                 logger.warn("calling findhr")
-                sampleHR = (signame, [[findHR(ts_datetime, ecg1), findHR(ts_datetime, ecg2), findHR(ts_datetime, ecg3)]])
+                sampleHR = (signame, [[findHR(ecg1, fs), findHR(ecg2, fs), findHR(ecg3, fs)]])
                 print(sampleHR)
                 signals_HR.append(sampleHR)
         else:
