@@ -13,7 +13,8 @@ import psycopg2.extras as extras
 import helpers
 import logging
 import biosppy
-
+import boto3
+import json
 
 
 def accum(a):
@@ -68,6 +69,12 @@ def findHR(ecg, fs, weight=0.1, threshold=0.2):
 
 def process_sample(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_sample')
+    s3 = boto3.client('s3')
+    obj = s3.get_object(Bucket=s3bucket_config['bucket'],
+                        Key="%mgh001_metadata.txt" )
+    file_content = obj.get()['Body'].read().decode('utf-8')
+    meta_data = json.loads(file_content)
+    fs = meta_data['fs']
 
 
     def _insert_sample(sqlcmd1, sqlcmd2, signals):
@@ -107,20 +114,20 @@ def process_sample(logger, postgres_config, s3bucket_config, a, record):
             # print('x', len(x), type(x))
             signame = str(x[0])
             signal = np.array(x[1])
-            #signal[np.argsort(signal[:, 0])]
+            signal[np.argsort(signal[:, 0])]
             ts_str = signal[:, 0]
-            ts_str.sort()
-            fs = 1/(datetime.strptime(ts_str[1], '%Y-%m-%d %H:%M:%S.%f') - datetime.strptime(ts_str[0], '%Y-%m-%d %H:%M:%S.%f')).total_seconds()
+            # ts_str.sort()
+            # fs = 1/(datetime.strptime(ts_str[1], '%Y-%m-%d %H:%M:%S.%f') - datetime.strptime(ts_str[0], '%Y-%m-%d %H:%M:%S.%f')).total_seconds()
             print('fs is', fs)
             if len(ts_str) > 3:
                 #print('passed: ', ts_str.shape)
-                ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
-                ts_datetime = np.array(ts_datetime)
-                ts_datetime.sort()
-                diff_ts = np.diff(ts_datetime)
-                diff_ts_seconds = [i.total_seconds() for i in diff_ts]
-                fs = 1.0 / np.average(diff_ts_seconds)
-                print('average fs is', fs)
+                # ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
+                # ts_datetime = np.array(ts_datetime)
+                # ts_datetime.sort()
+                # diff_ts = np.diff(ts_datetime)
+                # diff_ts_seconds = [i.total_seconds() for i in diff_ts]
+                # fs = 1.0 / np.average(diff_ts_seconds)
+                # print('average fs is', fs)
                 ecg1 = np.array(signal[:, 1]).astype(float)
                 # print(ecg1)
                 ecg2 = np.array(signal[:, 2]).astype(float)
