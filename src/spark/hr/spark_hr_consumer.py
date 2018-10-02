@@ -71,12 +71,18 @@ def process_sample(logger, postgres_config, s3bucket_config, a, record):
             signal = np.array(x[1])
             #signal[np.argsort(signal[:, 0])]
             ts_str = signal[:, 0]
+            ts_str.sort()
             fs = 1/(datetime.strptime(ts_str[1], '%Y-%m-%d %H:%M:%S.%f') - datetime.strptime(ts_str[0], '%Y-%m-%d %H:%M:%S.%f')).total_seconds()
-            #print(signal)
+            print('fs is', fs)
             if len(ts_str) > 3:
                 #print('passed: ', ts_str.shape)
                 ts_datetime = [datetime.strptime(ts_str[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(ts_str))]
                 ts_datetime = np.array(ts_datetime)
+                ts_datetime.sort()
+                diff_ts = np.diff(ts_datetime)
+                diff_ts_seconds = [i.total_seconds() for i in diff_ts]
+                fs = 1.0 / np.average(diff_ts_seconds)
+                print('average fs is', fs)
                 ecg1 = np.array(signal[:, 1]).astype(float)
                 # print(ecg1)
                 ecg2 = np.array(signal[:, 2]).astype(float)
@@ -110,7 +116,7 @@ class SparkConsumer:
         self.kafka_config = helpers.parse_config(kafka_config_infile)
         self.sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
         self.sc.setLogLevel("FATAL")
-        self.ssc = StreamingContext(self.sc, 10)
+        self.ssc = StreamingContext(self.sc, 60)
         self.logger.warn('Opened spark Context')
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
