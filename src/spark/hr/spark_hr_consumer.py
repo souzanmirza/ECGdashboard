@@ -34,35 +34,67 @@ def filterECG(ecg):
     return signal.lfilter(b, a, ecg)
 
 
-def findHR(ts, ecg, weight):
+#def findHR(ts, ecg, weight):
+#    # self.logger.warn('fxn findHR')
+#    '''detect HR using avg of R-R intervals'''
+#    ecg = filterECG(ecg)
+#    maxpeak = weight * max(ecg)
+#    if maxpeak > 0:
+#        locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
+#        if len(locs) > 1:
+#            #print('num of peaks is: ', len(locs), ' num of unique peaks are ', len(np.unique(locs)))
+#            #print(ecg[locs])
+#            Rpeaks_ts = ts[locs]
+#            Rpeaks_ts.sort()
+#            #print(Rpeaks_ts[-1], Rpeaks_ts[0], (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
+#            # diff_ts = np.diff(Rpeaks_ts)
+#            # #print(diff_ts)
+#            # bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
+#            bpm = len(Rpeaks_ts) * (60 / (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
+#            
+#            if bpm > 0:
+#                return int(bpm)
+#            else:
+#                # self.logger.debug('Invalid HR returned')
+#                return -1
+#        else:
+#            # self.logger.debug('Invalid HR returned')
+#            return -1
+#    else:
+#        # self.logger.debug('Invalid HR returned')
+#        return -1
+    
+def findHR(ts, ecg, weight=0.33, threshold=0.5):
     # self.logger.warn('fxn findHR')
     '''detect HR using avg of R-R intervals'''
     ecg = filterECG(ecg)
-    maxpeak = weight * max(ecg)
+    maxpeak = max(weight * max(ecg), threshold)
     if maxpeak > 0:
+        print('maxpeak: ', maxpeak)
         locs = detect_peaks.detect_peaks(ecg, mph=maxpeak)
         if len(locs) > 1:
-            #print('num of peaks is: ', len(locs), ' num of unique peaks are ', len(np.unique(locs)))
-            #print(ecg[locs])
             Rpeaks_ts = ts[locs]
             Rpeaks_ts.sort()
-            #print(Rpeaks_ts[-1], Rpeaks_ts[0], (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
-            diff_ts = np.diff(Rpeaks_ts)
-            #print(diff_ts)
-            bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
-            bpm = len(Rpeaks_ts) * (60 / (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
-            
+            print('max time ', (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
+            print('number of Rpeaks ', len(Rpeaks_ts))
+            bpm = len(Rpeaks_ts) * (60 / (ts[-1] - ts[0]).total_seconds())
+            #print('num of peaks is: ', len(locs), ' num of unique peaks are ', len(np.unique(locs)))
+            #Rpeaks_ts = ts[locs]
+            #Rpeaks_ts.sort()
+#            print(Rpeaks_ts[-1], Rpeaks_ts[0], (Rpeaks_ts[-1] - Rpeaks_ts[0]).total_seconds())
+            #diff_ts = np.diff(Rpeaks_ts)
+            #bps = np.sum([diff_ts[i].total_seconds() for i in range(len(diff_ts))]) / len(diff_ts)
+            #bpm = 60 * bps
+
             if bpm > 0:
                 return int(bpm)
             else:
-                # self.logger.debug('Invalid HR returned')
                 return -1
         else:
-            # self.logger.debug('Invalid HR returned')
             return -1
     else:
-        # self.logger.debug('Invalid HR returned')
         return -1
+
 
 
 
