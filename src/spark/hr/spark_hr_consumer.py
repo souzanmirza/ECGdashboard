@@ -20,13 +20,48 @@ def accum(a):
     a.add(1)
     return a.value
     
-def findHR(ecg, fs):
+def findHR(ecg, fs, weight=0.1, threshold=0.2):
+    if max(ecg) < threshold:
+     #   print('maxecg too small', max(ecg))
+        return -1, {}
     output = biosppy.signals.ecg.ecg(ecg, sampling_rate=fs, show=False).as_dict()
-    average_hr = np.average(output['heart_rate'])
+    filtered = output['filtered']
+    filtered = filtered[np.where(abs(filtered) > 0.05)]
+    #print(len(filtered))
+    rpeaks, = biosppy.signals.ecg.hamilton_segmenter(signal=filtered, sampling_rate=fs)
+    # correct R-peak locations
+    rpeaks, = biosppy.signals.ecg.correct_rpeaks(signal=filtered,
+                             rpeaks=rpeaks,
+                             sampling_rate=fs,
+                             tol=0.05)
+
+    # extract templates
+    templates, rpeaks = biosppy.signals.ecg.extract_heartbeats(signal=filtered,
+                                           rpeaks=rpeaks,
+                                           sampling_rate=fs,
+                                           before=0.2,
+                                           after=0.4)
+
+    # compute heart rate
+    hr_idx, hr = biosppy.signals.tools.get_heart_rate(beats=rpeaks,
+                                   sampling_rate=fs,
+                                   smooth=True,
+                                   size=3)
+    
+    average_hr = np.average(hr)
+    output = {'filtered': filtered, 'rpeaks': rpeaks}
     if average_hr > 0:
-        return average_hr
+        return average_hr, output
     else:
-        return -1
+        return -1, output
+
+#def findHR(ecg, fs):
+#    output = biosppy.signals.ecg.ecg(ecg, sampling_rate=fs, show=False).as_dict()
+#    average_hr = np.average(output['heart_rate'])
+#    if average_hr > 0:
+#        return average_hr
+#    else:
+#        return -1
 
 def process_sample(logger, postgres_config, s3bucket_config, a, record):
     logger.warn('fxn insert_sample')
