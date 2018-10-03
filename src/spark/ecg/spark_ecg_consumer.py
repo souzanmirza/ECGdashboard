@@ -7,6 +7,9 @@ from kafka.producer import KafkaProducer
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils, TopicAndPartition
+from pyspark.sql.types import StructType, StructField, StringType
+import pyspark.sql.context
+import pyspark.sql.streaming.DataStreamWriter as sdf
 import psycopg2
 import psycopg2.extras as extras
 import helpers
@@ -51,6 +54,17 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
     sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
     sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
     record.foreachPartition(lambda x: _insert_samples(sqlcmd1, sqlcmd2, list(x)))
+    schema = StructType([StructField(str(i), StringType(), True) for i in range(32)])
+
+    def _save_to_s3(signals):
+        for signal in signals:
+            signame = signal[0]
+            rdds = signal[1]
+            for line in rdds:
+                df = pyspark.sql.context.createDataFrame(line, schema)
+                df.write.format("parquet").mode("append").save("output/%d-%s"%(a, signame))
+
+    record.foreach(_save_to_s3)
 
     # record.repartition(1).saveAsTextFile(
     #     "s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".format(s3bucket_config['aws_access_key_id'],
@@ -163,6 +177,7 @@ class SparkConsumer:
             print('raw_record is none')
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
+
         record_interval.foreachRDD(
             lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
         self.logger.warn('Saved records to DB')
