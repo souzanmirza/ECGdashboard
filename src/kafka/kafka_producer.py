@@ -35,14 +35,17 @@ class Producer(object):
             # for i in range(fs):
             # time_field = datetime.now().strftime("%Y%m%d-%H%M%S")
             for line in obj['Body'].iter_lines():
-                linesplit = line.decode().split(',')
-                str_fmt = "{},{},{},{},{}"
-                message_info = str_fmt.format(file_key,
-                                              linesplit[0],
-                                              linesplit[1],
-                                              linesplit[2],
-                                              linesplit[3]
-                                              )
+                try:
+                    linesplit = line.decode().split(',')
+                    str_fmt = "{},{},{},{},{}"
+                    message_info = str_fmt.format(file_key,
+                                                  linesplit[0],
+                                                  linesplit[1],
+                                                  linesplit[2],
+                                                  linesplit[3]
+                                                  )
+                except Exception as e:
+                    print(e)
                 try:
                     msg = str.encode(message_info)
                 except:
