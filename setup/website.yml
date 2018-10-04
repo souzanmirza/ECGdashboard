@@ -2,9 +2,9 @@ purchase_type: on_demand
 subnet_id: subnet-015405f53e806a38a
 num_instances: 1
 key_name: souzan-iam-keypair
-security_group_ids: sg-0fd83e9cf2f4a5c63
-instance_type: m4.large
-tag_name: database
+security_group_ids: sg-01ab667fd801f033f
+instance_type: t2.micro
+tag_name: website
 vol_size: 100
 role: master
 use_eips: true
