@@ -9,13 +9,14 @@ from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils, TopicAndPartition
 from pyspark.sql.types import StructType, StructField, StringType
 import pyspark.sql.context
-import pyspark.sql.streaming.DataStreamWriter as sdf
+from pyspark.sql import SQLContext, Row
 import psycopg2
 import psycopg2.extras as extras
 import helpers
 import logging
 import json
 import pickle
+import datetime
 
 
 def accum(a):
@@ -54,44 +55,6 @@ def insert_samples(logger, postgres_config, s3bucket_config, a, record):
     sqlcmd1 = "PREPARE inserts AS INSERT INTO signal_samples(batchnum, signame, time, ecg1, ecg2, ecg3) VALUES ({}, '{}', $1, $2, $3, $4) ON CONFLICT DO NOTHING;"
     sqlcmd2 = "EXECUTE inserts (%s, %s, %s, %s);"
     record.foreachPartition(lambda x: _insert_samples(sqlcmd1, sqlcmd2, list(x)))
-    schema = StructType([StructField(str(i), StringType(), True) for i in range(32)])
-
-    def _save_to_s3(signals):
-        for signal in signals:
-            signame = signal[0]
-            rdds = signal[1]
-            for line in rdds:
-                df = pyspark.sql.context.createDataFrame(line, schema)
-                df.write.format("parquet").mode("append").save("output/%d-%s"%(a, signame))
-
-    record.foreach(_save_to_s3)
-
-    # record.repartition(1).saveAsTextFile(
-    #     "s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".format(s3bucket_config['aws_access_key_id'],
-    #                                                             s3bucket_config['aws_secret_access_key'],
-    #                                                             s3bucket_config['bucket'],
-    #                                                             a, datetime.now()))
-
-
-# def send_samples(logger, kafka_config, ecg_spark_config, a, record):
-#     logger.warn('fxn send_samples')
-#
-#     def _send_samples(signals):
-#         # print('fxn _send_samples')
-#         ecg_kafka_producer = KafkaProducer(bootstrap_servers=kafka_config['ip-addr'].split(','),
-#                                            value_serializer=lambda v: pickle.dumps(v).encode('utf-8'))
-#         logger.warn('fxn _send_samples')
-#         # print('len of signals', len(signals))
-#         for signal in signals:
-#             # print('len of signal is ',len(signal))
-#             grouped_signal_samples = {'batchnum': a, 'signame': signal[0], 'samples': signal[1]}
-#             print(grouped_signal_samples['batchnum'], grouped_signal_samples['signame'], len(grouped_signal_samples['samples']), ecg_spark_config['topic'])
-#             ecg_kafka_producer.send(ecg_spark_config['topic'], grouped_signal_samples)
-#             logger.warn('in fxn sent samples to topic')
-#
-#     # print(type(record.take(1)), len(record.take(1)))
-#     record.foreachPartition(lambda x: _send_samples(list(x)))
-
 
 class SparkConsumer:
 
@@ -158,6 +121,26 @@ class SparkConsumer:
                                                            hr2 float(1) NOT NULL, \
                                                            hr3 float(1) NOT NULL);")
             cur.execute("CREATE INDEX IF NOT EXISTS inst_hr_idx ON inst_hr (batchnum, signame);")
+            cur.execute("CREATE OR REPLACE FUNCTION create_partition_and_insert() RETURNS trigger AS"
+                        "$BODY$"
+                        "DECLARE"
+                        "      partition_date TEXT;"
+                        "      partition TEXT;"
+                        "      BEGIN"
+                        "           partition_date := to_char(NEW.time,'YYYY_MM_DD');"
+                        "           partition := TG_RELNAME || '_' || partition_date;"
+                        "      IF NOT EXISTS(SELECT relname FROM pg_class WHERE relname=partition) THEN"
+                        "           RAISE NOTICE 'A partition has been created %',partition;"
+                        "           EXECUTE 'CREATE TABLE ' || partition || ' (check (time = ''' || NEW.time || ''')) INHERITS (' || TG_RELNAME || ');';"
+                        "       END IF"
+                        "       partition_time := to_char(NEW.time,'YYYY_MM_DD_HH24_MI_SS_MS');"
+                        "       EXECUTE 'INSERT INTO ' || partition || ' SELECT(' || TG_RELNAME || ' ' || quote_literal(NEW) || ').*;';"
+                        "       RETURN NULL;"
+                        "       END;"
+                        "       $BODY$"
+                        "LANGUAGE plpgsql VOLATILE"
+                        "COST 100;")
+            cur.execute("CREATE TRIGGER signal_samples_insert_trigger BEFORE INSERT ON signal_samples FOR EACH ROW EXECUTE PROCEDURE create_partition_and_insert();")
             # print("created inst_hr table")
             conn.commit()
             cur.close()
@@ -167,24 +150,40 @@ class SparkConsumer:
             self.logger.warn('Exception %s' % e)
 
     def run(self):
+        sqlContext = SQLContext(self.sc)
+
         lines = self.kafkastream.map(lambda x: x[1])
         self.logger.warn('Reading in kafka stream line')
+
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
         if raw_record is not None:
             raw_record.pprint()
         else:
             print('raw_record is none')
-        record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
-            groupByKey().map(lambda x: (x[0], list(x[1])))
 
-        record_interval.foreachRDD(
-            lambda x: insert_samples(self.logger, self.postgres_config, self.s3bucket_config, accum(self.a), x))
-        self.logger.warn('Saved records to DB')
-        
-        # record_interval.foreachRDD(
-        #     lambda x: send_samples(self.logger, self.kafka_config, self.ecg_spark_config, self.a.value, x))
-        # self.logger.warn('Sent samples to kafka topic')
+        record_interval = raw_record.map(lambda x: (x[0],
+                                                    Row(time=datetime.strptime(x[1], '%Y-%m-%d %H:%M:%S.%f'),
+                                                        ecg1=float(x[2]), ecg2=float(x[3]), ecg3=float(x[4])))). \
+            groupByKey().map(lambda x: (x[0], x[1]))
+
+        s3bucket_config = self.s3bucket_config
+        batchnum = accum(self.a)
+
+        def test(dstream):
+            def _test(signals):
+                for signal in signals:
+                    signame = signal[0]
+                    df = sqlContext.createDataFrame(signal[1])
+                    df.write.parquet("s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".
+                                     format(s3bucket_config['aws_access_key_id'],
+                                            s3bucket_config['aws_secret_access_key'],
+                                            s3bucket_config['bucket'],
+                                            batchnum, datetime.now()))
+
+            dstream.foreach(_test)
+
+        record_interval.foreachRDD(test)
 
         self.ssc.start()
         self.logger.warn('Spark context started')
