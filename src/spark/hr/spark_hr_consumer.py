@@ -1,4 +1,5 @@
 import sys
+import os
 
 sys.path.append('../../python/')
 
@@ -142,6 +143,8 @@ def process_sample(logger, postgres_config, a, fs, record):
 class SparkConsumer:
 
     def __init__(self, kafka_config_infile, hr_spark_config_infile, postgres_config_infile, s3bucket_config_infile):
+        if not os.path.exists('./tmp'):
+            os.makedirs('./tmp')
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s',
                             filename='./tmp/spark_consumer.log',
