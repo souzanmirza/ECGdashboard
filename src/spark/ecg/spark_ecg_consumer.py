@@ -24,7 +24,7 @@ def accum(a):
     return a.value
 
 
-def insert_samples(logger, postgres_config, s3bucket_config, a, record):
+def insert_samples(logger, postgres_config, a, record):
     logger.warn('fxn insert_samples')
 
     def _insert_samples(sqlcmd1, sqlcmd2, signals):
@@ -150,7 +150,6 @@ class SparkConsumer:
             self.logger.warn('Exception %s' % e)
 
     def run(self):
-        sqlContext = SQLContext(self.sc)
 
         lines = self.kafkastream.map(lambda x: x[1])
         self.logger.warn('Reading in kafka stream line')
@@ -162,28 +161,10 @@ class SparkConsumer:
         else:
             print('raw_record is none')
 
-        record_interval = raw_record.map(lambda x: (x[0],
-                                                    Row(time=datetime.strptime(x[1], '%Y-%m-%d %H:%M:%S.%f'),
-                                                        ecg1=float(x[2]), ecg2=float(x[3]), ecg3=float(x[4])))). \
-            groupByKey().map(lambda x: (x[0], x[1]))
+        record_interval = raw_record.map(lambda x: (x[0], x[1:])). \
+            groupByKey().map(lambda x: (x[0], list(x[1])))
 
-        s3bucket_config = self.s3bucket_config
-        batchnum = accum(self.a)
-
-        def test(dstream):
-            def _test(signals):
-                for signal in signals:
-                    signame = signal[0]
-                    df = sqlContext.createDataFrame(signal[1])
-                    df.write.parquet("s3a://{}:{}@{}/processed/batchnum{:05d}-{}.txt".
-                                     format(s3bucket_config['aws_access_key_id'],
-                                            s3bucket_config['aws_secret_access_key'],
-                                            s3bucket_config['bucket'],
-                                            batchnum, datetime.now()))
-
-            dstream.foreach(_test)
-
-        record_interval.foreachRDD(test)
+        record_interval.foreachRDD(lambda x: insert_samples(self.logger, self.postgres_config, accum(self.a), x))
 
         self.ssc.start()
         self.logger.warn('Spark context started')
