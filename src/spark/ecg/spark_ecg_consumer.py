@@ -1,4 +1,5 @@
 import sys
+import os
 
 sys.path.append('../../python/')
 sys.path.append('../../kafka/')
@@ -17,6 +18,7 @@ import logging
 import json
 import pickle
 import datetime
+
 
 
 def accum(a):
@@ -59,6 +61,8 @@ def insert_samples(logger, postgres_config, a, record):
 class SparkConsumer:
 
     def __init__(self, kafka_config_infile, ecg_spark_config_infile, postgres_config_infile, s3bucket_config_infile):
+        if not os.path.exists('./tmp'):
+            os.makedirs('./tmp')
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s',
                             filename='./tmp/spark_consumer.log',
@@ -76,7 +80,6 @@ class SparkConsumer:
         self.kafkastream = self.connectToKafkaBrokers()
         self.logger.warn('Opened connection to Kafka brokers')
         self.a = self.sc.accumulator(0)
-        self.setupDB()
 
     def start(self):
         self.ssc.start()
@@ -94,60 +97,6 @@ class SparkConsumer:
         #                                              'group.id': self.ecg_spark_config['group-id']})
         self.logger.warn('Connected kafka stream to spark context')
         return kafkastream
-
-    def setupDB(self):
-        self.logger.warn("Setting up DB tables")
-        try:
-            conn = psycopg2.connect(host=self.postgres_config['host'],
-                                    database=self.postgres_config['database'],
-                                    port=self.postgres_config['port'],
-                                    user=self.postgres_config['user'],
-                                    password=self.postgres_config['password'])
-            cur = conn.cursor()
-            # print(self.postgres_config)
-            cur.execute("CREATE TABLE IF NOT EXISTS signal_samples (id serial PRIMARY KEY,\
-                                                       batchnum int NOT NULL, \
-                                                       signame varchar(50) NOT NULL, \
-                                                       time timestamp NOT NULL, \
-                                                       ecg1 float(6) NOT NULL, \
-                                                       ecg2 float(6) NOT NULL, \
-                                                       ecg3 float(6) NOT NULL);")
-            # print("created signal_samples table")
-            cur.execute("CREATE INDEX IF NOT EXISTS signal_samples_idx ON signal_samples (signame, time);")
-            cur.execute("CREATE TABLE IF NOT EXISTS inst_hr (id serial PRIMARY KEY, \
-                                                           batchnum int NOT NULL, \
-                                                           signame varchar(50) NOT NULL, \
-                                                           hr1 float(1) NOT NULL, \
-                                                           hr2 float(1) NOT NULL, \
-                                                           hr3 float(1) NOT NULL);")
-            cur.execute("CREATE INDEX IF NOT EXISTS inst_hr_idx ON inst_hr (batchnum, signame);")
-            cur.execute("CREATE OR REPLACE FUNCTION create_partition_and_insert() RETURNS trigger AS"
-                        "$BODY$"
-                        "DECLARE"
-                        "      partition_date TEXT;"
-                        "      partition TEXT;"
-                        "      BEGIN"
-                        "           partition_date := to_char(NEW.time,'YYYY_MM_DD');"
-                        "           partition := TG_RELNAME || '_' || partition_date;"
-                        "      IF NOT EXISTS(SELECT relname FROM pg_class WHERE relname=partition) THEN"
-                        "           RAISE NOTICE 'A partition has been created %',partition;"
-                        "           EXECUTE 'CREATE TABLE ' || partition || ' (check (time = ''' || NEW.time || ''')) INHERITS (' || TG_RELNAME || ');';"
-                        "       END IF"
-                        "       partition_time := to_char(NEW.time,'YYYY_MM_DD_HH24_MI_SS_MS');"
-                        "       EXECUTE 'INSERT INTO ' || partition || ' SELECT(' || TG_RELNAME || ' ' || quote_literal(NEW) || ').*;';"
-                        "       RETURN NULL;"
-                        "       END;"
-                        "       $BODY$"
-                        "LANGUAGE plpgsql VOLATILE"
-                        "COST 100;")
-            cur.execute("CREATE TRIGGER signal_samples_insert_trigger BEFORE INSERT ON signal_samples FOR EACH ROW EXECUTE PROCEDURE create_partition_and_insert();")
-            # print("created inst_hr table")
-            conn.commit()
-            cur.close()
-            conn.close()
-            self.logger.warn("Done setting up DB tables")
-        except Exception as e:
-            self.logger.warn('Exception %s' % e)
 
     def run(self):
 
