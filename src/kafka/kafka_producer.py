@@ -9,6 +9,7 @@ import helpers
 import pickle
 import numpy as np
 import json
+import logging
 
 fs = 360
 
@@ -16,6 +17,14 @@ fs = 360
 class Producer(object):
 
     def __init__(self, ip_addr, kafka_config_infile, s3bucket_config_infile):
+        if not os.path.exists('./tmp'):
+            os.makedirs('./tmp')
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s %(message)s',
+                            filename='./tmp/kafka_producer.log',
+                            filemode='w')
+        self.logger = logging.getLogger('py4j')
+
         self.kafka_config = helpers.parse_config(kafka_config_infile)
         self.s3bucket_config = helpers.parse_config(s3bucket_config_infile)
         self.producer = KafkaProducer(bootstrap_servers=ip_addr)
@@ -45,11 +54,12 @@ class Producer(object):
                                                   linesplit[3]
                                                   )
                 except Exception as e:
-                    print(e)
+                    self.logger.error('fxn produce_ecg_signal_msgs error %s'%e)
                 try:
                     msg = str.encode(message_info)
                 except:
                     msg = None
+                    self.logger.debug('empty message')
                 if msg is not None:
                     self.producer.send(self.kafka_config['topic'], msg)
                     msg_cnt += 1
