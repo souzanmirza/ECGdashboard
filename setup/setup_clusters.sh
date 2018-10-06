@@ -1,5 +1,5 @@
-#peg up kafkamaster.yml &
-#peg up kafkaworkers.yml &
+peg up kafkamaster.yml &
+peg up kafkaworkers.yml &
 
 wait
 
@@ -70,3 +70,17 @@ peg install spark-hr-cluster spark
 peg service spark-hr-cluster spark start
 
 peg sshcmd-cluster spark-hr-cluster "pip install psycopg2 pyspark boto3 bidict h5py matplotlib numpy scikit-learn scipy shortuuid six biosppy"
+
+#############################################################
+
+peg up website.yml &
+
+wait
+
+peg fetch website
+
+peg install websitessh
+peg install website aws
+peg install website environment
+
+peg sshcmd-cluster website "pip install psycopg2 numpy dash==0.28.1 dash-html-components==0.13.2 dash-core-components==0.30.2"
