@@ -78,7 +78,7 @@ def process_sample(logger, postgres_config, a, fs, record):
         for signal in signals:
             #print(type(signal))
             #print('fxn _insert_sample', signal[0])
-            _sqlcmd1 = sqlcmd1.format(a, signal[0])
+            _sqlcmd1 = sqlcmd1.format(a, signal[0], datetime.now())
             try:
                 #print('in try block')
                 conn = psycopg2.connect(host=postgres_config['host'],
@@ -133,7 +133,7 @@ def process_sample(logger, postgres_config, a, fs, record):
         else:
             logger.debug('No HR returned')
 
-        sqlcmd3 = "PREPARE inserts AS INSERT INTO inst_hr(batchnum, signame, hr1, hr2, hr3) VALUES ({}, '{}', $1, $2, $3) ON CONFLICT DO NOTHING;"
+        sqlcmd3 = "PREPARE inserts AS INSERT INTO inst_hr(batchnum, signame, time, hr1, hr2, hr3) VALUES ({}, '{}', {}, $1, $2, $3) ON CONFLICT DO NOTHING;"
         sqlcmd4 = "EXECUTE inserts (%s, %s, %s)"
         _insert_sample(sqlcmd3, sqlcmd4, signals_HR)
     record.foreachPartition(_calculateHR)
