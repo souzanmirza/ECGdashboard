@@ -1,7 +1,3 @@
--- in psql console execute the following commands
-
-DROP TABLE signal_samples CASCADE;
-
 CREATE TABLE signal_samples (
     id serial PRIMARY KEY,
     batchnum int NOT NULL,
@@ -36,9 +32,6 @@ CREATE OR REPLACE FUNCTION create_partition_and_insert() RETURNS trigger AS
 LANGUAGE plpgsql VOLATILE
 COST 100;
 
-DROP TRIGGER IF EXISTS signal_samples_insert_trigger on signal_samples;
-
-
 CREATE TRIGGER signal_samples_insert_trigger
 BEFORE INSERT ON signal_samples
 FOR EACH ROW EXECUTE PROCEDURE create_partition_and_insert();
@@ -46,6 +39,7 @@ FOR EACH ROW EXECUTE PROCEDURE create_partition_and_insert();
 CREATE TABLE inst_hr (
     id serial PRIMARY KEY,
     batchnum int NOT NULL,
+    time timestamp NOT NULL,
     signame varchar(50) NOT NULL,
     hr1 float(1) NOT NULL,
     hr2 float(1) NOT NULL,
