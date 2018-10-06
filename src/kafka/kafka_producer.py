@@ -1,17 +1,14 @@
 import sys
+import os
 from kafka.producer import KafkaProducer
 import boto3
 import time
 from datetime import datetime
+import pytz
 
 sys.path.append('../python/')
 import helpers
-import pickle
-import numpy as np
-import json
 import logging
-
-fs = 360
 
 
 class Producer(object):
@@ -48,7 +45,7 @@ class Producer(object):
                     linesplit = line.decode().split(',')
                     str_fmt = "{},{},{},{},{}"
                     message_info = str_fmt.format(file_key,
-                                                  linesplit[0],
+                                                  datetime.now(pytz.timezone('US/Eastern')),
                                                   linesplit[1],
                                                   linesplit[2],
                                                   linesplit[3]
