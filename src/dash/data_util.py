@@ -21,7 +21,7 @@ class DataUtil:
         self.postgres_config = helpers.parse_config(postgres_config_infile)
         self.cur = self.connectToDB()
         self.signal_schema = ['batchnum', 'signame', 'time', 'ecg1', 'ecg2', 'ecg3']
-        self.hr_schema = ['batchnum', 'signame', 'hr1', 'hr2', 'hr3']
+        self.hr_schema = ['batchnum', 'signame', 'time', 'hr1', 'hr2', 'hr3']
 
 
     def connectToDB(self):
@@ -54,18 +54,19 @@ class DataUtil:
 
 
     def getLastestHR(self):
-        sqlcmd = "SELECT MAX(b.batchnum) as batchnum, b.signame, b.hr1, b.hr2, b.hr3 \
+        sqlcmd = "SELECT MAX(b.batchnum) as batchnum, b.signame, b.time, b.hr1, b.hr2, b.hr3 \
                   FROM inst_hr b \
                   INNER JOIN \
                   (SELECT signame, MAX(batchnum) as MaxBatch \
                   FROM inst_hr \
                   GROUP BY signame) a ON a.signame = b.signame AND a.MaxBatch = b.batchnum \
-                  GROUP BY b.batchnum, b.signame, b.hr1, b.hr2, b.hr3;"
+                  GROUP BY b.batchnum, b.signame, b.time, b.hr1, b.hr2, b.hr3;"
         self.cur.execute(sqlcmd)
         #print(self.cur.fetchall())
         df = pd.DataFrame(self.cur.fetchall(), columns=self.hr_schema)
         df.set_index(self.hr_schema[1], inplace=True)
-        return df.T.to_dict('dict')
+        df.apply(lambda row: self.getAverageHR(row['hr1'], row['hr2'], row['hr3']), axis=1).tolist()
+        return df
 
 
     def getTimestampBounds(self, df):
@@ -74,13 +75,15 @@ class DataUtil:
         timestamps = [minTime] + ['.'] * df[self.signal_schema[2]].count() + [maxTime]
 
 
-    def getAverageHR(self, heartrates):
-        heartrates = np.array([heartrates['hr1'], heartrates['hr2'], heartrates['hr3']])
+    def getAverageHR(self, hr1, hr2, hr3, time=None):
+        heartrates = np.array([hr1, hr2, hr3])
         heartrates[np.where(heartrates==-1)]=0
+        if time:
+            return [time, int(np.average(heartrates))]
         return int(np.average(heartrates))
 
     def getHRSamples(self):
-        sqlcmd = "SELECT batchnum, signame, hr1, hr2, hr3 \
+        sqlcmd = "SELECT batchnum, signame, time, hr1, hr2, hr3 \
                   FROM inst_hr \
                   ORDER BY signame;"
         self.cur.execute(sqlcmd)
@@ -92,14 +95,23 @@ class DataUtil:
         LastestHR = {}
         for key in DataFrameDict.keys():
             DataFrameDict[key] = df[:][df.signame == key]
-            DataFrameDict[key].sort_values('batchnum', inplace=True)
-            AverageHRDict[key] = DataFrameDict[key][['hr1', 'hr2', 'hr3']].apply(lambda row: self.getAverageHR(row), axis=1).tolist()
-            LastestHR[key] = DataFrameDict[key].tail(n=1).to_dict('list')
+            DataFrameDict[key].sort_values('time', inplace=True)
+            AverageHRDict[key] = DataFrameDict[key].apply(lambda row: self.getAverageHR(row['hr1'], row['hr2'], row['hr3'], row['time']), axis=1).tolist()
+            LastestHR[key] = DataFrameDict[key].tail(n=1).apply(lambda row: self.getAverageHR(row['hr1'], row['hr2'], row['hr3']), axis=1).tolist()
         return AverageHRDict.keys(), AverageHRDict, LastestHR
 
 
 if __name__ == '__main__':
+    import time
     postgres_config_infile = '../../.config/postgres.config'
     datautil = DataUtil(postgres_config_infile)
-    keys, DataFrameDict = datautil.getLastestECGSamples()
-    keys, hrvar, latesthr = datautil.getHRSamples()
+    while True:
+        keys, DataFrameDict= datautil.getLastestECGSamples()
+        keys, hrvar, latesthr  = datautil.getHRSamples()
+        try:
+            print(DataFrameDict['mghdata_ts/mgh001'])
+        except:
+            print('no mghdata_ts/mgh001')
+            pass
+        print(latesthr)
+        time.sleep(0.2)
