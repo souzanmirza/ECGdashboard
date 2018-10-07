@@ -1,15 +1,19 @@
 import numpy as np
 import time
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import dash
 import dash_core_components as dcc
 from dash.dependencies import Output, Event
 import dash_html_components as html
 from data_util import DataUtil
+import flask
 
 UPDADE_INTERVAL = 5
 
-app = dash.Dash()
+
+WEBSITE = 'http://ecgdashboard.life/'
+
+server = flask.Flask(__name__)
+app = dash.Dash(__name__, server=server)
 app.config['suppress_callback_exceptions'] = True
 postgres_config_infile = '../../.config/postgres.config'
 query_helper = DataUtil(postgres_config_infile)
@@ -27,10 +31,10 @@ def update(period=UPDADE_INTERVAL):
     events=[Event('refresh', 'interval')])
 def get_hr_graph():
     signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
-    try:
-        print(latesthr['mghdata_ts/mgh001'])
-    except:
-        pass
+    #try:
+    #    print(latesthr['mghdata_ts/mgh001'])
+    #except:
+    #    pass
     return html.Div(className='hr', children=[dcc.Graph(animate=True,
                                    id='hr1-' + signame,
                                    style={'width': '100%'},
@@ -96,4 +100,4 @@ app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
                           dcc.Interval(id='refresh', interval=2000)])
 
 if __name__ == '__main__':
-    app.run_server()
+    app.run_server(host="0.0.0.0", port=80)
