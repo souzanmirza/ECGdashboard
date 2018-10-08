@@ -10,11 +10,14 @@ Hospital collect and process a lot of signals and are now moving towards storing
 My project is to process and display ECG signals in near real time from patients. 
 These ECG signals are processed every minute to analyze the beat-to-beat heart rate (HR) of each patient in the hospital. 
 These signals are also indexed and stored for use as inputs when developing machine learning models to predict adverse physiological events to improve patient care
-
-![alt text](https://github.com/souzanmirza/ECGdashboard/blob/master/docs/ecgsignals.jpg)
+<p align="center">
+<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/ecgsignals.jpg" width="700", height="400">
+</p>
 
 ## Solution Architecture
-![alt text](https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline.png)				             
+<p align="center">
+<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline.png" width="700", height="400">
+</p>
 
 ECGdashboard runs a pipeline on the AWS cloud, using the following cluster configurations:
 * four m4.large EC2 instances for Kafka producers
