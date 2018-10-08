@@ -1,5 +1,5 @@
 # ECGdashboard
-
+Hello and welcome to the repository for my Data Engineering project during my fellowship at Insight Data Science in New York 2018.
 ## Business Problem
 My project aims to: 
 1. Reduce staffing costs by providing a centralized monitoring dashboard to view multiple patient's ECG signals at once.
