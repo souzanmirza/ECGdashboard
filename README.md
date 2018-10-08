@@ -1,21 +1,29 @@
 # ECGdashboard
 
 ## Business Problem
-Hospital collect and process a lot of signals and are now moving towards storing them. My project is to process, display and save ECG signals from patients thoughout a hospital. These ECG signals are processed every minute to analyze the beat-to-beat heart rate (HR) of each patient in the hospital. Alarms are set to warn nurses of patients with low or high HR and signal failure which is predominately caused by the electrodes losing contact with the skin.
+My project aims to: 
+1. Reduce staffing costs by providing a centralized monitoring dashboard to view multiple patient's ECG signals at once.
+2. Index and store raw physiological signals for downstream analysis. 
 
-These alarms are triggered very frequently leading to nursing alarm fatigue. To reduce the number of unnecessary alarms, the alarm theshold is dynamically changed within safe limits to reduce the number of alarms. If the alarm is still triggered when the threshold has been changed to it's maximum or minimum value, the nurse is called. Additionally, the alarms are routed to specific nurses instead of to everyone to reduce unnecessary alerts being sent to everyone.
+### Description
+Hospital collect and process a lot of signals and are now moving towards storing them. 
+My project is to process and display ECG signals in near real time from patients. 
+These ECG signals are processed every minute to analyze the beat-to-beat heart rate (HR) of each patient in the hospital. 
+These signals are also indexed and stored for use as inputs when developing machine learning models to predict adverse physiological events to improve patient care
+
+![alt text](https://github.com/souzanmirza/ECGdashboard/blob/master/docs/ecgsignals.jpg)
 
 ## Solution Architecture
-							     ^ Spark
-							     V 
-ECG Streams --> S3 bucket --> Kafta --> Spark Streaming --> PostgreSQL --> Dash
-						             
+![alt text](https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline.png)				             
 
 ECGdashboard runs a pipeline on the AWS cloud, using the following cluster configurations:
-* four m4.large EC2 instances for Kafka (only master has producer threads at this moment)
-* four m4.large EC2 instances for Spark Streaming (ingesting from Kafka master node)
+* four m4.large EC2 instances for Kafka producers
+* four m4.large EC2 instances for Spark Streaming (2s mini-batch) which writes to postgres database
+* four m4.large EC2 instances for Spark Streaming (60s mini-batch) which calculates heart rate over 60s period
+* one t2.micro RDS instance for PostgreSQL database
+* one t2.micro EC2 instance for Dash app
 
-
+### Design Choices
 * Data storage: PostgreSQL
 	* Easy to change over to timescaleDB once implemented
 	* Can store waveform, HR, alarm state in same database (build on PostgreSQL)
@@ -26,11 +34,11 @@ ECGdashboard runs a pipeline on the AWS cloud, using the following cluster confi
 * Front end: Dash
 	* Easy to build website with python
 
-## Setting up AWS account
-Requirements: 
+## Setting up AWS clusters
+### Requirements 
 * [peg](https://github.com/InsightDataScience/pegasus)
 * [confluent-kafka](https://docs.confluent.io/current/installation/installing_cp/zip-tar.html#prod-kafka-cli-install)
 
-Setup
+### Setup
 * To setup clusters run setup/setup_cluster.sh
-* To setup postgresql follow postgresql rds instructions available from AWS. Note: Make sure 2 subnets in different availability sub-zones, make database publically accessible (so can access from outside the VPC). To setup tables run sql commands in setup/db_setup.txt
+* To setup database follow setup/db_setup.txt. Once setup, build tables using sql commands in setup/tables.sql
