@@ -157,7 +157,7 @@ class SparkConsumer:
         self.kafka_config = helpers.parse_config(kafka_config_infile)
         self.sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
         self.sc.setLogLevel("FATAL")
-        self.ssc = StreamingContext(self.sc, 10)
+        self.ssc = StreamingContext(self.sc, 60)
         self.logger.warn('Opened spark Context')
         self.kafkastream = self.openKafka()
         self.a = self.sc.accumulator(0)
@@ -190,10 +190,10 @@ class SparkConsumer:
         self.logger.warn('Reading in kafka stream line')
         raw_record = lines.map(lambda line: line.encode('utf-8')). \
             map(lambda line: line.split(','))
-        #if raw_record is not None:
-        #    raw_record.pprint()
-        #else:
-        #    print('raw_record is none')
+        if raw_record is not None:
+            raw_record.pprint()
+        else:
+            print('raw_record is none')
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
         record_interval.foreachRDD(
