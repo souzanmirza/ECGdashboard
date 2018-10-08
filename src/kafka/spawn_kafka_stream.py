@@ -1,14 +1,15 @@
 import sys
-sys.path.append('../python')
-import helpers
-import boto3
 import os
+import boto3
+import helpers
+sys.path.append('../python')
+
+# TODO: Fix brokers unavailable issue now switched over the confluent-kafka.
 
 session = 'k1'
 kafka_config = helpers.parse_config('../../.config/kafka.config')
 s3bucket_config = helpers.parse_config('../../.config/s3bucket.config')
 ipaddr = kafka_config['ip-addr'].split(',')
-#ipaddr = [ip.strip(':9092') for ip in ipaddr]
 s3 = boto3.client('s3')
 obj = s3.get_object(Bucket=s3bucket_config['bucket'],
                     Key="RECORDS_abridged.txt")
@@ -17,6 +18,7 @@ print(records)
 
 records_per_node = round(len(records)/len(ipaddr))
 
+#Open x number of file threads on y nodes. Visualized using tmux.
 os.system('tmux kill-session -t %s'%session)
 os.system('tmux new-session -s %s -n bash -d'%session)
 for i in range(len(ipaddr)):
