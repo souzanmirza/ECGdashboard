@@ -1,15 +1,20 @@
 import sys
 import os
-
-sys.path.append('../python/')
-
-import psycopg2
-import helpers
+import time
 import logging
 import pandas as pd
 import numpy as np
+import psycopg2
+import helpers
+
+sys.path.append('../python/')
+
 
 class DataUtil:
+    """
+    Class to query from database for app streaming.
+    """
+
     def __init__(self, postgres_config_infile):
         if not os.path.exists('./tmp'):
             os.makedirs('./tmp')
@@ -23,8 +28,10 @@ class DataUtil:
         self.signal_schema = ['batchnum', 'signame', 'time', 'ecg1', 'ecg2', 'ecg3']
         self.hr_schema = ['batchnum', 'signame', 'time', 'hr1', 'hr2', 'hr3']
 
-
     def connectToDB(self):
+        """
+        :return: database cursor
+        """
         cur = None
         try:
             conn = psycopg2.connect(host=self.postgres_config['host'],
@@ -37,23 +44,30 @@ class DataUtil:
             print(e)
         return cur
 
-    def getLastestECGSamples(self, duration = 10):
+    def getLastestECGSamples(self, interval=10):
+        """
+        Queries signal_samples table to return the latest samples within the given interval.
+        :param interval: time in seconds
+        :return: dictionary of pandas dataframes containing latest samples within interval for each unique signame.
+        """
         sqlcmd = "SELECT batchnum, signame, time, ecg1, ecg2, ecg3 \
                     FROM signal_samples WHERE time > (SELECT MAX(time) - interval '{} second' \
                     FROM signal_samples) \
-                    ORDER BY signame;".format(duration)
+                    ORDER BY signame;".format(interval)
         self.cur.execute(sqlcmd)
         df = pd.DataFrame(self.cur.fetchall(), columns=self.signal_schema)
-        UniqueNames = df.signame.unique()
-        DataFrameDict = {elem : pd.DataFrame for elem in UniqueNames}
-        signames=df[self.signal_schema[1]].unique().tolist()
-        for key in DataFrameDict.keys():
-            DataFrameDict[key] = df[:][df.signame == key]
-            DataFrameDict[key].sort_values('time', inplace=True)
-        return DataFrameDict.keys(), DataFrameDict
-
+        signames = df[self.signal_schema[1]].unique()
+        signals_dict = {elem: pd.DataFrame for elem in signames}
+        for key in signals_dict.keys():
+            signals_dict[key] = df[:][df.signame == key]
+            signals_dict[key].sort_values('time', inplace=True)
+        return signals_dict.keys(), signals_dict
 
     def getLastestHR(self):
+        """
+        Queries inst_hr table to return the most recent heart rate measure for each signame.
+        :return: pandas dataframe containing the average heart rate for each signal.
+        """
         sqlcmd = "SELECT MAX(b.batchnum) as batchnum, b.signame, b.time, b.hr1, b.hr2, b.hr3 \
                   FROM inst_hr b \
                   INNER JOIN \
@@ -62,53 +76,57 @@ class DataUtil:
                   GROUP BY signame) a ON a.signame = b.signame AND a.MaxBatch = b.batchnum \
                   GROUP BY b.batchnum, b.signame, b.time, b.hr1, b.hr2, b.hr3;"
         self.cur.execute(sqlcmd)
-        #print(self.cur.fetchall())
         df = pd.DataFrame(self.cur.fetchall(), columns=self.hr_schema)
         df.set_index(self.hr_schema[1], inplace=True)
         df.apply(lambda row: self.getAverageHR(row['hr1'], row['hr2'], row['hr3']), axis=1).tolist()
         return df
 
-
-    def getTimestampBounds(self, df):
-        maxTime = str(df[self.signal_schema[2]].max())
-        minTime = str(df[self.signal_schema[2]].min())
-        timestamps = [minTime] + ['.'] * df[self.signal_schema[2]].count() + [maxTime]
-
-
     def getAverageHR(self, hr1, hr2, hr3, time=None):
+        """
+        Finds the average heart rate from the heart rate measured on all 3 leads.
+        :param hr1, h2, h3: hr measured by lead I, II, III respectively
+        :param time: timestamp for the measurement
+        :return: list of time and average heart rate or if no time input then just list of average heart rate value.
+        """
         heartrates = np.array([hr1, hr2, hr3])
-        heartrates[np.where(heartrates==-1)]=0
+        heartrates[np.where(heartrates == -1)] = 0
         if time:
             return [time, int(np.average(heartrates))]
         return int(np.average(heartrates))
 
     def getHRSamples(self):
+        """
+        Query inst_hr table to return HR samples from whole period
+        :return: dictionary of pandas dataframes containing average HRs from all time,
+        list of signames, dictionary containing most recent average HR measurement for each signame.
+        """
         sqlcmd = "SELECT batchnum, signame, time, hr1, hr2, hr3 \
                   FROM inst_hr \
                   ORDER BY signame;"
         self.cur.execute(sqlcmd)
         df = pd.DataFrame(self.cur.fetchall(), columns=self.hr_schema)
-        UniqueNames = df.signame.unique()
-        DataFrameDict = {elem: pd.DataFrame for elem in UniqueNames}
-        AverageHRDict = {}
-        signames = df[self.signal_schema[1]].unique().tolist()
-        LastestHR = {}
-        for key in DataFrameDict.keys():
-            DataFrameDict[key] = df[:][df.signame == key]
-            DataFrameDict[key].sort_values('time', inplace=True)
-            AverageHRDict[key] = DataFrameDict[key].apply(lambda row: self.getAverageHR(row['hr1'], row['hr2'], row['hr3'], row['time']), axis=1).tolist()
-            LastestHR[key] = DataFrameDict[key].tail(n=1).apply(lambda row: self.getAverageHR(row['hr1'], row['hr2'], row['hr3']), axis=1).tolist()
-        return AverageHRDict.keys(), AverageHRDict, LastestHR
+        signames = df[self.hr_schema[1]].unique().tolist()
+        hr_dict = {elem: pd.DataFrame for elem in signames}
+        average_hr_dict = {}
+        latest_hr = {}
+        for key in hr_dict.keys():
+            hr_dict[key] = df[:][df.signame == key]
+            hr_dict[key].sort_values('time', inplace=True)
+            average_hr_dict[key] = hr_dict[key].apply(
+                lambda row: self.getAverageHR(row['hr1'], row['hr2'], row['hr3'], row['time']), axis=1).tolist()
+            latest_hr[key] = hr_dict[key].tail(n=1).apply(
+                lambda row: self.getAverageHR(row['hr1'], row['hr2'], row['hr3']), axis=1).tolist()
+        return average_hr_dict.keys(), average_hr_dict, latest_hr
 
 
 if __name__ == '__main__':
-    import time
+    # Test the output of the queries.
     postgres_config_infile = '../../.config/postgres.config'
     datautil = DataUtil(postgres_config_infile)
     while True:
-        keys_ecg, DataFrameDict= datautil.getLastestECGSamples()
-        keys, hrvar, latesthr  = datautil.getHRSamples()
+        keys_ecg, signals_dict = datautil.getLastestECGSamples()
+        keys, hrvar, latesthr = datautil.getHRSamples()
         for key in keys_ecg:
-    	    print('ecg samples: ', key, len(DataFrameDict[key].index))
+            print('ecg samples: ', key, len(signals_dict[key].index))
         print(latesthr)
         time.sleep(1)
