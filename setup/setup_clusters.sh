@@ -1,5 +1,5 @@
-peg up kafkamaster.yml &
-peg up kafkaworkers.yml &
+peg up yml/kafkamaster.yml &
+peg up yml/kafkaworkers.yml &
 
 wait
 
@@ -9,6 +9,8 @@ peg install kafka-cluster ssh
 peg install kafka-cluster aws
 peg install kafka-cluster environment
 peg sshcmd-cluster kafka-cluster "sudo apt-get install bc"
+
+## to be amended.
 
 peg install kafka-cluster zookeeper
 peg service kafka-cluster zookeeper start
@@ -20,8 +22,8 @@ peg service kafka-cluster kafka start
 
 spark-ecg-cluster
 
-peg up sparkecgmaster.yml &
-peg up sparkecgworkers.yml &
+peg up yml/sparkecgmaster.yml &
+peg up yml/sparkecgworkers.yml &
 
 wait
 
@@ -47,8 +49,8 @@ peg sshcmd-cluster spark-ecg-cluster "pip install psycopg2 pyspark boto3"
 
 spark-hr-cluster
 
-peg up sparkhrmaster.yml &
-peg up sparkhrworkers.yml &
+peg up yml/sparkhrmaster.yml &
+peg up yml/sparkhrworkers.yml &
 
 wait
 
@@ -73,7 +75,7 @@ peg sshcmd-cluster spark-hr-cluster "pip install psycopg2 pyspark boto3 bidict h
 
 #############################################################
 
-peg up website.yml &
+peg up yml/website.yml &
 
 wait
 
