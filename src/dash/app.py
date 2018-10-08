@@ -7,23 +7,12 @@ import dash_html_components as html
 from data_util import DataUtil
 import flask
 
-UPDADE_INTERVAL = 5
-
-
-WEBSITE = 'http://ecgdashboard.life/'
 
 server = flask.Flask(__name__)
 app = dash.Dash(__name__, server=server)
 app.config['suppress_callback_exceptions'] = True
 postgres_config_infile = '../../.config/postgres.config'
 query_helper = DataUtil(postgres_config_infile)
-
-
-def update(period=UPDADE_INTERVAL):
-    signames_ecg, signals = query_helper.getLastestECGSamples(10)
-    signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
-    return signames_ecg, signals, signames_hr, hrvariability, latesthr
-    # time.sleep(period)
 
 
 @app.callback(
@@ -35,8 +24,8 @@ def get_hr_graph():
     #    print(latesthr['mghdata_ts/mgh001'])
     #except:
     #    pass
-    return html.Div(className='hr', children=[dcc.Graph(animate=True,
-                                   id='hr1-' + signame,
+    return html.Div(className='hr', children=[dcc.Graph(
+                                   id='hr-' + signame,
                                    style={'width': '100%'},
                                    figure={
                                        'data': [
@@ -45,7 +34,7 @@ def get_hr_graph():
                                             'type': 'line', 'name': signame}
                                        ],
                                        'layout': {
-                                           'title': signame + ' hr1'
+                                           'title': signame + ' hr'
                                        }
                                    })for signame in signames_hr])
 
@@ -54,11 +43,14 @@ def get_hr_graph():
     Output('ecg-output', 'children'),
     events=[Event('refresh', 'interval')])
 def get_ecg_graph():
-    signames_ecg, signals, signames_hr, hrvariability, latesthr = update()
+    signames_ecg, signals = query_helper.getLastestECGSamples(10)
+    #for key in signames_ecg:
+    #    print('ecg samples: ', key, len(signals[key].index), signals[key])
+    #    signames_ecg, signals, signames_hr, hrvariability, latesthr = update()
     titles = ['ecg1', 'ecg2', 'ecg3']
     return html.Div(className = 'ecg', children=[
         html.Div(style={'display': 'flex', 'height': '50vh', 'border-top': '1px solid grey'},
-                 children=[dcc.Graph(animate=True,
+                 children=[dcc.Graph(
                                      id=title + signame,
                                      style={'width': '100%'},
                                      figure={
@@ -70,17 +62,17 @@ def get_ecg_graph():
                                          'layout': {
                                              'title': '{}-{}'.format(signame, title),
                                              'xaxis': {'title': 'time'},
-                                             'yaxis': {'title': 'voltage (mv)'}
+                                             'yaxis': {'title': 'voltage (mv)', 'range': np.linspace(-2.5, 2.5, 10)}
                                          }
                                      }
                                      ) for title in titles]
-                          +
-                          [html.Div(
-                              style={'justify-content': 'center', 'display': 'flex',
-                                     'align-items': 'center', 'width': '10vh', 'font-size': '30pt'},
-                              children=['{}'.format(latesthr[signame][0])])
-                          ]
-                 ) for signame in signames_ecg])
+                          # +
+                          # [html.Div(
+                          #     style={'justify-content': 'center', 'display': 'flex',
+                          #            'align-items': 'center', 'width': '10vh', 'font-size': '30pt'},
+                          #     children=['{}'.format(latesthr[signame][0])])
+                          # ]
+                 )for signame in signames_ecg])
 
 
 app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
@@ -97,7 +89,9 @@ app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
                      'textAlign': 'left',
                      'fontSize': '12pt'
                  }),
-                          dcc.Interval(id='refresh', interval=2000)])
+                          dcc.Interval(id='refresh', interval=1000)])
 
 if __name__ == '__main__':
-    app.run_server(host="0.0.0.0", port=80)
+    app.run_server(host='0.0.0.0', port=8050)
+    #app.run_server(debug=True)
+
