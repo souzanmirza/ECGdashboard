@@ -1,3 +1,5 @@
+#TODO: Amend Kafka setup now using confluent-kafka. Also this setup does not work.
+
 peg up yml/kafkamaster.yml &
 peg up yml/kafkaworkers.yml &
 
@@ -9,8 +11,6 @@ peg install kafka-cluster ssh
 peg install kafka-cluster aws
 peg install kafka-cluster environment
 peg sshcmd-cluster kafka-cluster "sudo apt-get install bc"
-
-## to be amended.
 
 peg install kafka-cluster zookeeper
 peg service kafka-cluster zookeeper start
