@@ -106,12 +106,9 @@ if __name__ == '__main__':
     postgres_config_infile = '../../.config/postgres.config'
     datautil = DataUtil(postgres_config_infile)
     while True:
-        keys, DataFrameDict= datautil.getLastestECGSamples()
+        keys_ecg, DataFrameDict= datautil.getLastestECGSamples()
         keys, hrvar, latesthr  = datautil.getHRSamples()
-        try:
-            print(DataFrameDict['mghdata_ts/mgh001'])
-        except:
-            print('no mghdata_ts/mgh001')
-            pass
+        for key in keys_ecg:
+    	    print('ecg samples: ', key, len(DataFrameDict[key].index))
         print(latesthr)
-        time.sleep(0.2)
+        time.sleep(1)
