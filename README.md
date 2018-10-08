@@ -29,8 +29,8 @@ ECGdashboard runs a pipeline on the AWS cloud, using the following cluster confi
 ## Setting up AWS account
 Requirements: 
 * [peg](https://github.com/InsightDataScience/pegasus)
+* [confluent-kafka](https://docs.confluent.io/current/installation/installing_cp/zip-tar.html#prod-kafka-cli-install)
 
 Setup
-* To setup kafka-cluster run setup/kafka_cluster.sh. On master node, start topic using src/kafka/maketopics.sh
-* To setup spark-cluster run setup/spark_hadoop.sh. On master node, start spark job using runspark.sh
-* To setup postgreSQL node run setup/postgresmaster.yml. Follow instructions on setup/db_setup.txt
+* To setup clusters run setup/setup_cluster.sh
+* To setup postgresql follow postgresql rds instructions available from AWS. Note: Make sure 2 subnets in different availability sub-zones, make database publically accessible (so can access from outside the VPC). To setup tables run sql commands in setup/db_setup.txt
