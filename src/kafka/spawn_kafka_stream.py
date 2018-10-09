@@ -14,9 +14,9 @@ s3 = boto3.client('s3')
 obj = s3.get_object(Bucket=s3bucket_config['bucket'],
                     Key="RECORDS_abridged.txt")
 records = obj['Body'].read().decode('utf-8').split('\n')
-print(records)
 
-records_per_node = round(len(records)/len(ipaddr))
+records_per_node = int(round(len(records)/len(ipaddr)))
+print(records_per_node)
 
 #Open x number of file threads on y nodes. Visualized using tmux.
 os.system('tmux kill-session -t %s'%session)
