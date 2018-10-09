@@ -1,4 +1,4 @@
 Create DB using RDS instance.
 Assure 2 subnets created.
-Choose free features
+Choose free features.
 Choose PostgreSQL database.
