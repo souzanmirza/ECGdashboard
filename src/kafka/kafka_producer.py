@@ -6,9 +6,8 @@ from datetime import datetime
 import pytz
 from kafka.producer import KafkaProducer
 import logging
-import helpers
-
 sys.path.append('../python/')
+import helpers
 
 # TODO: Use kafka-connect to write directly from topic to postgresql database.
 

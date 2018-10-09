@@ -1,8 +1,8 @@
-import sys
 import os
+import sys
+sys.path.append('../python')
 import boto3
 import helpers
-sys.path.append('../python')
 
 # TODO: Fix brokers unavailable issue now switched over the confluent-kafka.
 
