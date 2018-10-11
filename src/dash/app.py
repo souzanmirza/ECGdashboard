@@ -28,7 +28,7 @@ def get_hr_graph():
     Plots heart rate variability for each patient input.
     """
     signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
-    return html.Div(className='hr', children=[dcc.Graph(
+    return html.Div(style={'height': '30vh'}, className='hr', children=[dcc.Graph(
         id='hr-' + signame,
         style={'width': '100%'},
         figure={
@@ -38,7 +38,9 @@ def get_hr_graph():
                  'type': 'line', 'name': signame}
             ],
             'layout': {
-                'title': signame + ' hr'
+                'title': signame + ' hr',
+                'xaxis': {'title':'time'},
+                'yaxis': {'title': 'HR (beats/min'}
             }
         }) for signame in signames_hr])
 
@@ -53,7 +55,7 @@ def get_ecg_graph():
     signames_ecg, signals = query_helper.getLastestECGSamples(10)
     titles = ['ecg1', 'ecg2', 'ecg3']
     return html.Div(className='ecg', children=[
-        html.Div(style={'display': 'flex', 'height': '50vh', 'border-top': '1px solid grey'},
+        html.Div(style={'display': 'flex', 'height': '30vh', 'border-top': '1px solid grey'},
                  children=[dcc.Graph(
                      id=title + signame,
                      style={'width': '100%'},
