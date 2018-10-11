@@ -14,7 +14,20 @@ These signals are also indexed and stored for use as inputs when developing mach
 <img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/ecgsignals.jpg" width="600", height="400">
 </p>
 
-## Solution Architecture
+## Solution
+
+My pipeline loads in ECG timeseries data from an S3 bucket which contains separate files for each patient. The files are ingested line by line simulating sampling of the ECG signals by my kafka brokers. The brokers produce messages into a topic which is subscribed to by two spark streaming clusters. The first spark streaming cluster has a 2-second mini-batch interval which groups the signals from each patient and saves them to my PostgreSQL database. The second cluster has a 60-second mini-batch interval to measure the number of beats over the batch period to calculate heart rate per minute over time and save them to my database. Botht the time series ECG samples and the calculated heart rate's are displayed on my dash front end.
+
+## Front-End Views
+<p align="left">
+<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/dashboard_ecg.png" width="500", height="400">
+</p>
+<p align="right">
+<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/dashboard_hr.png" width="500", height="400">
+</p>
+
+
+### Architecture
 <p align="center">
 <img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline.png" width="700", height="400">
 </p>
