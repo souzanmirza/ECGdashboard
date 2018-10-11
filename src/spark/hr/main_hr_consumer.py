@@ -10,5 +10,5 @@ if __name__ == '__main__':
     postgres_config_infile = '../../../.config/postgres.config'
     s3bucket_config_infile = '../../../.config/s3bucket.config'
     consumer = SparkConsumer(kafka_config_infile, hr_spark_config_infile, postgres_config_infile,
-                             s3bucket_config_infile)
+                             s3bucket_config_infile, 60)
     consumer.runHR()
