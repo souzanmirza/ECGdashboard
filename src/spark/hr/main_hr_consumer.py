@@ -1,5 +1,5 @@
 import sys
-sys.path.append('..')
+sys.path.append('../')
 
 from spark_consumer import SparkConsumer
 
