@@ -12,7 +12,11 @@ import json
 import boto3
 from spark_helpers import *
 
+
 class SparkConsumer:
+    """
+    Class for spark consumer reading from kafka topic which contains the ecg timeseries data.
+    """
 
     def __init__(self, kafka_config_infile, ecg_spark_config_infile, postgres_config_infile, s3bucket_config_infile):
         if not os.path.exists('./tmp'):
@@ -36,12 +40,18 @@ class SparkConsumer:
         self.a = self.sc.accumulator(0)
 
     def start(self):
+        """
+        Starts the streaming context to start subscribing to kafka topic
+        """
         self.ssc.start()
         self.logger.warn('Spark context started')
         self.ssc.awaitTermination()
         self.logger.warn('Spark context terminated')
 
     def connectToKafkaBrokers(self):
+        """
+        Setup subscription to kafka topic
+        """
         kafkastream = KafkaUtils.createDirectStream(self.ssc, [self.kafka_config["topic"]],
                                                     {"metadata.broker.list": self.kafka_config['ip-addr'],
                                                      "group.id": self.ecg_spark_config['group-id'],
@@ -49,8 +59,11 @@ class SparkConsumer:
         self.logger.warn('Connected kafka stream to spark context')
         return kafkastream
 
-    def run_ecg(self):
-
+    def runECG(self):
+        """
+        Grouping and insertion of ecg samples into database
+        :return:
+        """
         lines = self.kafkastream.map(lambda x: x[1])
         self.logger.warn('Reading in kafka stream line')
 
@@ -64,17 +77,21 @@ class SparkConsumer:
         record_interval = raw_record.map(lambda x: (x[0], x[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
 
-        record_interval.foreachRDD(lambda x: insert_ecg_samples(self.logger, self.postgres_config, accum(self.a), x))
+        record_interval.foreachRDD(lambda x: insertECGSamples(self.logger, self.postgres_config, accum(self.a), x))
 
         self.ssc.start()
         self.logger.warn('Spark context started')
         self.ssc.awaitTermination()
         self.logger.warn('Spark context terminated')
 
-    def run_hr(self):
+    def runHR(self):
+        """
+        Grouping and calculation of HR for insertion in database
+        :return:
+        """
         s3 = boto3.client('s3')
         obj = s3.get_object(Bucket=self.s3bucket_config['bucket'],
-                        Key="mgh001_metadata.txt" )
+                            Key="mgh001_metadata.txt")
         file_content = obj['Body'].read().decode('utf-8')
         meta_data = json.loads(file_content)
         fs = meta_data['fs']
@@ -89,7 +106,7 @@ class SparkConsumer:
         record_interval = raw_record.map(lambda line: (line[0], line[1:])). \
             groupByKey().map(lambda x: (x[0], list(x[1])))
         record_interval.foreachRDD(
-            lambda x: process_hr_sample(self.logger, self.postgres_config, accum(self.a), fs, x))
+            lambda x: processHRSample(self.logger, self.postgres_config, accum(self.a), fs, x))
         self.logger.warn('Saved records to DB')
 
         self.ssc.start()
