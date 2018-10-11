@@ -53,6 +53,7 @@ def get_ecg_graph():
     Plots ECG signals for each patient input.
     """
     signames_ecg, signals = query_helper.getLastestECGSamples(10)
+    signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
     titles = ['ecg1', 'ecg2', 'ecg3']
     return html.Div(className='ecg', children=[
         html.Div(style={'display': 'flex', 'height': '30vh', 'border-top': '1px solid grey'},
@@ -72,12 +73,12 @@ def get_ecg_graph():
                          }
                      }
                  ) for title in titles]
-                 # +
-                 # [html.Div(
-                 #     style={'justify-content': 'center', 'display': 'flex',
-                 #            'align-items': 'center', 'width': '10vh', 'font-size': '30pt'},
-                 #     children=['{}'.format(latesthr[signame][0])])
-                 # ]
+                 +
+                 [html.Div(
+                     style={'justify-content': 'center', 'display': 'flex',
+                            'align-items': 'center', 'width': '10vh', 'font-size': '30pt'},
+                     children=['{}'.format(latesthr[signame][0])])
+                 ]
                  ) for signame in signames_ecg])
 
 
