@@ -27,7 +27,7 @@ My pipeline loads in ECG timeseries data from an S3 bucket which contains separa
 
 ### Architecture
 <p align="center">
-<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline.png" width="700", height="400">
+<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline%20(5).png" width="700", height="400">
 </p>
 
 ## Setting up AWS clusters
