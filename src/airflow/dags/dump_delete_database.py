@@ -1,5 +1,8 @@
 import sys
 from datetime import datetime, timedelta
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+from airflow.operators.bash_operator import BashOperator
 import psycopg2
 import pandas as pd
 import boto3
@@ -8,6 +11,14 @@ from StringIO import StringIO
 
 sys.path.append('../../python/')
 import helpers
+
+s3bucket_config_infile = 's3bucket.config'
+postgres_config_infile = 'postgres.config'
+
+s3bucket_config = helpers.parse_config(s3bucket_config_infile)
+postgres_config = helpers.parse_config(postgres_config_infile)
+
+schema = ['id', 'batchnum', 'signame', 'time', 'ecg1', 'ecg2', 'ecg3']
 
 def connectToDB(postgres_config):
     """
@@ -24,7 +35,7 @@ def connectToDB(postgres_config):
     return conn
 
 
-def dump_to_s3(schema,s3bucket_config):
+def dump_to_s3():
     file_key = 'signal_samples_dump_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.csv'
     conn = connectToDB(postgres_config)
     cur = conn.cursor()
@@ -54,11 +65,24 @@ def drop_old_chunks():
     conn.close()
 
 
-if __name__ == '__main__':
-    s3bucket_config_infile = 's3bucket.config'
-    postgres_config_infile = 'postgres.config'
-    s3bucket_config = helpers.parse_config(s3bucket_config_infile)
-    postgres_config = helpers.parse_config(postgres_config_infile)
-    schema = ['id', 'batchnum', 'signame', 'time', 'ecg1', 'ecg2', 'ecg3']
-    dump_to_s3(schema, s3bucket_config)
-    drop_old_chunks()
+default_args = {
+    'owner': 'me',
+    'start_date': datetime.now(),
+    'max_active_runs':1,
+}
+
+
+with DAG('maintain_database',
+         default_args=default_args,
+         schedule_interval=timedelta(minutes=5),
+         catchup=False) as dag:
+
+    dump_to_s3 = PythonOperator(task_id='dump_to_s3',
+                                 python_callable=dump_to_s3)
+    sleep = BashOperator(task_id='sleep',
+                         bash_command='sleep 5')
+    drop_old_chunks = PythonOperator(task_id='drop_old_chunks',
+                                 python_callable=drop_old_chunks)
+
+dump_to_s3
+
