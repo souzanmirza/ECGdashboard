@@ -9,11 +9,11 @@ import boto3
 import gzip
 from StringIO import StringIO
 
-sys.append('../../python/')
+sys.path.append('../../python/')
 import helpers
 
-s3bucket_config_infile = '../../../.config/s3bucket.config'
-postgres_config_infile = '../../../.config/postgres.config'
+s3bucket_config_infile = 's3bucket.config'
+postgres_config_infile = 'postgres.config'
 
 s3bucket_config = helpers.parse_config(s3bucket_config_infile)
 postgres_config = helpers.parse_config(postgres_config_infile)
@@ -36,12 +36,12 @@ def connectToDB(postgres_config):
 
 
 def dump_to_s3():
-    file_key = 'signal_samples_dump_' + datetime.now() + '.csv'
+    file_key = 'signal_samples_dump_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.csv'
     conn = connectToDB(postgres_config)
     cur = conn.cursor()
 
     sqlcmd = "SELECT * FROM signal_samples \
-                        ORDER BY time;"
+                       WHERE signame='sig1' ORDER BY time;"
     cur.execute(sqlcmd)
     df = pd.DataFrame(cur.fetchall(), columns=schema)
     cur.close()
@@ -49,10 +49,10 @@ def dump_to_s3():
 
     csv_buffer = StringIO()
     df.to_csv(csv_buffer, index=False, compression='gzip')
-
+    print('dataframe has rows: ', df.count())
     # write stream to S3
     s3 = boto3.client('s3')
-    s3.put_object(Bucket=s3bucket_config['bucket'], Key=file_key, Body=csv_buffer.getvalue())
+    s3.put_object(Bucket=s3bucket_config['bucket'], Key='db_dumps/'+file_key, Body=csv_buffer.getvalue())
 
 
 def drop_old_chunks():
@@ -67,16 +67,15 @@ def drop_old_chunks():
 
 default_args = {
     'owner': 'me',
-    'start_date': datetime(2017, 6, 1),
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'start_date': datetime.now(),
+    'max_active_runs':1,
 }
 
 
 with DAG('maintain_database',
          default_args=default_args,
-         schedule_interval='0 * * * *',
-         ) as dag:
+         schedule_interval=timedelta(minutes=5),
+         catchup=False) as dag:
 
     dump_to_s3 = PythonOperator(task_id='dump_to_s3',
                                  python_callable=dump_to_s3)
@@ -85,4 +84,4 @@ with DAG('maintain_database',
     drop_old_chunks = PythonOperator(task_id='drop_old_chunks',
                                  python_callable=drop_old_chunks)
 
-dump_to_s3 >> sleep >> drop_old_chunks
+dump_to_s3
