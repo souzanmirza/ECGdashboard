@@ -7,15 +7,15 @@ import psycopg2
 import pandas as pd
 import boto3
 import gzip
-from io import StringIO, BytesIO
+from StringIO import StringIO
 
 sys.append('../../python/')
 import helpers
 
-s3_config_infile = '../../../.config/s3bucket.config'
+s3bucket_config_infile = '../../../.config/s3bucket.config'
 postgres_config_infile = '../../../.config/postgres.config'
 
-s3_config = helpers.parse_config(s3_config_infile)
+s3bucket_config = helpers.parse_config(s3bucket_config_infile)
 postgres_config = helpers.parse_config(postgres_config_infile)
 
 schema = ['id', 'batchnum', 'signame', 'time', 'ecg1', 'ecg2', 'ecg3']
@@ -35,7 +35,7 @@ def connectToDB(postgres_config):
     return conn
 
 
-def dump_to_s3(schema, s3bucket_config):
+def dump_to_s3():
     file_key = 'signal_samples_dump_' + datetime.now() + '.csv'
     conn = connectToDB(postgres_config)
     cur = conn.cursor()
@@ -48,20 +48,11 @@ def dump_to_s3(schema, s3bucket_config):
     conn.close()
 
     csv_buffer = StringIO()
-    df.to_csv(csv_buffer, index=False)
-
-    # reset stream position
-    csv_buffer.seek(0)
-    # create binary stream
-    gz_buffer = BytesIO()
-
-    # compress string stream using gzip
-    with gzip.GzipFile(mode='w', fileobj=gz_buffer) as gz_file:
-        gz_file.write(bytes(csv_buffer.getvalue(), 'utf-8'))
+    df.to_csv(csv_buffer, index=False, compression='gzip')
 
     # write stream to S3
     s3 = boto3.client('s3')
-    s3.put_object(Bucket=s3bucket_config['bucket'], Key=file_key, Body=gz_buffer.getvalue())
+    s3.put_object(Bucket=s3bucket_config['bucket'], Key=file_key, Body=csv_buffer.getvalue())
 
 
 def drop_old_chunks():
@@ -82,7 +73,7 @@ default_args = {
 }
 
 
-with DAG('airflow_tutorial_v01',
+with DAG('maintain_database',
          default_args=default_args,
          schedule_interval='0 * * * *',
          ) as dag:
