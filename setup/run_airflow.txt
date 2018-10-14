@@ -1,0 +1,28 @@
+Instructions for running airflow:
+
+cd <path-to-repo>/ECGdashboard/src/airflow/
+
+export AIRFLOW_HOME="$(pwd)"
+
+cd ./dags/
+
+python maintain_database.py
+
+airflow initdb
+
+airflow webserver -p 8080
+
+********************************************
+
+In new terminal:
+cd <path-to-repo>/ECGdashboard/src/airflow/
+
+export AIRFLOW_HOME="$(pwd)"
+
+airflow unpause maintain_database
+
+cd ./dags
+
+airflow scheduler
+
+You can monitor the process at the http://<ec2 public DNS>:8080

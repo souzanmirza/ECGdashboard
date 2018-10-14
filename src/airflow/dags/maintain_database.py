@@ -20,6 +20,7 @@ postgres_config = helpers.parse_config(postgres_config_infile)
 
 schema = ['id', 'batchnum', 'signame', 'time', 'ecg1', 'ecg2', 'ecg3']
 
+
 def connectToDB(postgres_config):
     """
     :return: database cursor
@@ -35,7 +36,10 @@ def connectToDB(postgres_config):
     return conn
 
 
-def dump_to_s3():
+def dumpToS3():
+    """
+    Saves current snapshot of the database to S3 bucket.
+    """
     file_key = 'signal_samples_dump_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.csv'
     conn = connectToDB(postgres_config)
     cur = conn.cursor()
@@ -48,17 +52,19 @@ def dump_to_s3():
     conn.close()
 
     csv_buffer = StringIO()
-    df.to_csv(csv_buffer, index=False, compression='gzip')
+    df.to_csv(csv_buffer, index=False)
     print('dataframe has rows: ', df.count())
-    # write stream to S3
     s3 = boto3.client('s3')
-    s3.put_object(Bucket=s3bucket_config['bucket'], Key='db_dumps/'+file_key, Body=csv_buffer.getvalue())
+    s3.put_object(Bucket=s3bucket_config['bucket'], Key='db_dumps/' + file_key, Body=csv_buffer.getvalue())
 
 
-def drop_old_chunks():
+def dropOldChunks():
+    """
+    Drops chunks older than now()-1 minute.
+    """
     conn = connectToDB(postgres_config)
     cur = conn.cursor()
-    sqlcmd = "SELECT drop_chunks(interval '30 seconds', 'signal_samples');"
+    sqlcmd = "SELECT drop_chunks(interval '1 minute', 'signal_samples');"
     cur.execute(sqlcmd)
     conn.commit()
     cur.close()
@@ -67,21 +73,21 @@ def drop_old_chunks():
 
 default_args = {
     'owner': 'me',
-    'start_date': datetime(2018,10,12),
+    'start_date': datetime(2018, 10, 12),
+    'catchup' : False
 }
 
-
+# Setting up DAG
 with DAG('maintain_database',
          default_args=default_args,
-         schedule_interval=timedelta(minutes=5),
-         catchup=False) as dag:
-
-    dump_to_s3 = PythonOperator(task_id='dump_to_s3',
-                                 python_callable=dump_to_s3)
+         schedule_interval=timedelta(minutes=5)
+         ) as dag:
+    dumpToS3 = PythonOperator(task_id='dumpToS3',
+                              python_callable=dumpToS3)
     sleep = BashOperator(task_id='sleep',
                          bash_command='sleep 5')
-    drop_old_chunks = PythonOperator(task_id='drop_old_chunks',
-                                 python_callable=drop_old_chunks)
+    dropOldChunks = PythonOperator(task_id='dropOldChunks',
+                                   python_callable=dropOldChunks)
 
-dump_to_s3 >> sleep > drop_old_chunks
-
+#Order of operations.
+dumpToS3 >> sleep >> dropOldChunks
