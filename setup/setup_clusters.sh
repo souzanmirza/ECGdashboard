@@ -1,5 +1,3 @@
-#TODO: Amend Kafka setup using confluent-kafka.
-
 peg up yml/kafkamaster.yml &
 peg up yml/kafkaworkers.yml &
 
