@@ -8,7 +8,7 @@ Hello and welcome to the repository for my Data Engineering project during my fe
 4. [Links](README.md#links)
 
 ## Business Problem
-My project aims to: 
+### Aims
 1. Reduce staffing costs by providing a centralized monitoring dashboard to view multiple patient's ECG signals at once.
 2. Index and store raw physiological signals for downstream analysis. 
 
