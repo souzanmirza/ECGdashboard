@@ -1,4 +1,52 @@
-Create DB using RDS instance.
-Assure 2 subnets created.
-Choose free features.
-Choose PostgreSQL database.
+SSH into node:
+peg fetch database
+peg ssh database 1
+
+Installing PostgreSQL-9.6 (on ubuntu<17.04):
+sudo add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -sc)-pgdg main'
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install postgresql-9.6
+
+Installing TimescaleDB library for postgres:
+sudo add-apt-repository ppa:timescale/timescaledb-ppa
+sudo apt-get update
+sudo apt install timescaledb-postgresql-9.6"
+
+In /etc/postgresql/9.6/main/postgresql.conf add:
+shared_preload_libraries = 'timescaledb'
+sudo service postgresql restart
+
+Create super-user.
+sudo -u postgres createuser --interactive
+[ecg]
+[y]
+
+Create database and add user to it:
+sudo -u postgres createdb ecg
+sudo adduser ecg
+
+Create TimescaleDB hypertable and chunk it based on time:
+sudo -i -u ecg
+psql
+
+CREATE TABLE inst_hr (
+    id serial PRIMARY KEY,
+    batchnum int NOT NULL,
+    time timestamp NOT NULL,
+    signame varchar(50) NOT NULL,
+    hr1 float(1) NOT NULL,
+    hr2 float(1) NOT NULL,
+    hr3 float(1) NOT NULL);
+
+CREATE TABLE signal_samples (
+    id serial NOT NULL,
+    batchnum int NOT NULL,
+    signame varchar(50) NOT NULL,
+    time timestamp PRIMARY KEY,
+    ecg1 float(1) NOT NULL,
+    ecg2 float(1) NOT NULL,
+    ecg3 float(1) NOT NULL,
+);
+
+SELECT create_hypertable('signal_samples', 'time', chunk_time_interval => interval '1 minute');
