@@ -3,3 +3,4 @@
 *.pyc
 *.log
 data/*
+src/dash/cache-directory/*
