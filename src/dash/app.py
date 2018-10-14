@@ -120,6 +120,6 @@ app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
 
 if __name__ == '__main__':
     # Run with sudo python app.py since using privileged port.
-    app.run_server(debug=True,host='0.0.0.0', port=80)
+    app.run_server(host='0.0.0.0', port=80)
 
 
