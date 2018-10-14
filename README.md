@@ -55,5 +55,6 @@ My pipeline loads in ECG timeseries data from an S3 bucket which contains separa
 * one t2.micro EC2 instance for Dash app
 
 ## Links
+* [ECGdashboard](http://ecgdashboard.life)
 * [Slideshow](https://docs.google.com/presentation/d/198-gXbHNTJeWQ6rWjrbCLg4sWrpUElwC42czowfElV4/edit?usp=sharing)
 * [Demo Video](https://drive.google.com/file/d/1cM3nIwuDpmu5ze9JMI9Z3z_KrZWg5bS-/view?usp=sharing)
