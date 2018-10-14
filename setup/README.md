@@ -1,5 +1,5 @@
 This folder contains the setup scripts and instructions for the application.
 
-Assuring all dependencies are met, run the setup.sh script to setup the clusters.
-
-Next follow the instructions in setup_db.txt to setup the TimescaleDB extension on the PostgreSQL database and create the necessary tables.
+1. Assuring all dependencies are met, run the setup.sh script to setup the clusters.
+2. Setup the TimescaleDB extension on the PostgreSQL database and create the necessary tables following the instructions in setup_db.txt.
+3. Configure the airflow job by following the instructions in run_airflow.txt
