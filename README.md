@@ -1,5 +1,12 @@
 # ECGdashboard
 Hello and welcome to the repository for my Data Engineering project during my fellowship at Insight Data Science in New York 2018.
+
+## Table of Contents
+1. [Business Problem](README.md#business-problem)
+2. [Solution](README.md#solution)
+3. [Installation](README.md#installation)
+4. [Links](README.md#links)
+
 ## Business Problem
 My project aims to: 
 1. Reduce staffing costs by providing a centralized monitoring dashboard to view multiple patient's ECG signals at once.
@@ -27,7 +34,7 @@ My pipeline loads in ECG timeseries data from an S3 bucket which contains separa
 <img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline.png" width="700", height="400">
 </p>
 
-## Setting up AWS clusters
+## Installation
 ### Requirements 
 * [peg](https://github.com/InsightDataScience/pegasus)
 
@@ -37,9 +44,16 @@ My pipeline loads in ECG timeseries data from an S3 bucket which contains separa
 * To setup the airflow job follow setup/run_airflow.txt
 * To start the pipeline follow the instructions in src/README.md 
 
+### Testing
+* Unittests can be run using the run_unittests.sh file in the ./test folder. Results are stored in ./test/results.txt.
+
 ### Cluster Configuration
 * four m4.large EC2 instances for Kafka producers
 * four m4.large EC2 instances for Spark Streaming (2s mini-batch) which writes to postgres database
 * four m4.large EC2 instances for Spark Streaming (60s mini-batch) which calculates heart rate over 60s period
 * one m4.large EC2 instance for TimescaleDB/PostgreSQL database
 * one t2.micro EC2 instance for Dash app
+
+## Links
+* [Slideshow](https://docs.google.com/presentation/d/198-gXbHNTJeWQ6rWjrbCLg4sWrpUElwC42czowfElV4/edit?usp=sharing)
+* (Demo Video)[]
