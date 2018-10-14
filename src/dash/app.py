@@ -22,6 +22,7 @@ TIMEOUT = 0
 
 app.config['suppress_callback_exceptions'] = True
 
+
 # Connect query object to database
 postgres_config_infile = '../../.config/postgres.config'
 query_helper = DataUtil(postgres_config_infile)
@@ -67,31 +68,33 @@ def get_ecg_graph():
     Plots ECG signals for each patient input.
     """
     titles = ['ecg1', 'ecg2', 'ecg3']
+    colors = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)']
     signames_ecg, signals, signames_hr, hrvariability, latesthr = update()
     return html.Div(className='ecg', children=[
-        html.Div(style={'display': 'flex', 'height': '30vh', 'border-top': '1px solid grey'},
+        html.Div(style={'display': 'flex', 'height': '40vh'},
                  children=[dcc.Graph(
-                     id=title + signame,
-                     style={'width': '100%', 'backgroundColor':'black', 'fontColor':'white'},
+                     id=titles[i] + signame,
+                     style={'width': '100%'},
                      figure={
                          'data': [
                              {'x': signals[signame]['time'],
-                              'y': signals[signame][title],
-                              'type': 'line', 'name': signame}
+                              'y': signals[signame][titles[i]],
+                              'mode': 'line', 'name': signame, 'line': {'color':colors[i]}}
                          ],
                          'layout': {
-                             'title': '{}-{}'.format(signame, title),
-                             'xaxis': {'title': 'time'},
-                             'yaxis': {'title': 'voltage (mv)', 'range': np.linspace(-2.5, 2.5, 10)},
+                             'font': {'color':'#fff'},
+                             'title': '{}-{}'.format(signame, titles[i]),
+                             'xaxis': {'title': 'time', 'color': '#fff', 'showgrid': 'False'},
+                             'yaxis': {'title': 'voltage (mv)', 'color': '#fff', 'showgrid': 'False', 'range': np.linspace(-2.5, 2.5, 10)},
                              'paper_bgcolor':'#000', 'plot_bgcolor':'#000',
-                             #'line':{'color':'#ff0000'}
+                           
                          }
                      }
-                 ) for title in titles]
+                 ) for i in range(len(titles))]
                           +
                           [html.Div(
                               style={'justify-content': 'center', 'display': 'flex',
-                                     'align-items': 'center', 'width': '10vh', 'font-size': '30pt'},
+                                     'align-items': 'center', 'width': '10vh', 'font-size': '30pt', 'color': 'white'},
                               children=['{}'.format(latesthr[signame][0])])
                           ]
                  ) for signame in signames_ecg])
@@ -99,16 +102,14 @@ def get_ecg_graph():
 
 # app layout with separate tabs for ECG and HR graphs.
 app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
-                                                   'margin-top': 'auto', 'backgroundColor':'black', 'fontColor': 'white'},
+                                                   'backgroundColor':'black', 'color': 'white'},
                       children=[
-                          html.H1(children='ECGdashboard For Monitored Patients'),
+                          html.H1(children='ECGdashboard For Monitored Patients', style={'margin-top':'0'}),
                           dcc.Tabs(className="tabs", children=[
                               dcc.Tab(label='ECG Signals', children=html.Div(id='ecg-output')),
                               dcc.Tab(label='HR Variability', children=html.Div(id='hr-output'))
                           ], style={
                               'width': '50vh',
-                              'border-style': 'solid',
-                              'border-color': 'thin lightgrey solid',
                               'textAlign': 'left',
                               'fontSize': '12pt',
                               'backgroundColor':'black'
