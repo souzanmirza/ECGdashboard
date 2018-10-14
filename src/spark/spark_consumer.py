@@ -32,7 +32,7 @@ class SparkConsumer:
         self.postgres_config = helpers.parse_config(postgres_config_infile)
         self.s3bucket_config = helpers.parse_config(s3bucket_config_infile)
         self.kafka_config = helpers.parse_config(kafka_config_infile)
-        self.sc = SparkContext(appName='PythonStreamingDirectKafkaWordCount')
+        self.sc = SparkContext(appName='ECGDashboardApp')
         self.sc.setLogLevel("FATAL")
         self.ssc = StreamingContext(self.sc, batch_interval)
         self.logger.warn('Opened spark Context')
