@@ -8,10 +8,7 @@ from data_util import DataUtil
 import flask
 from flask_caching import Cache
 
-# TODO: Add HR number display to ecg graph tab. Or add it to HR variability tab.
 # TODO: Deploy with app with Heroku.
-
-
 
 
 # Setup flask server
@@ -29,11 +26,13 @@ app.config['suppress_callback_exceptions'] = True
 postgres_config_infile = '../../.config/postgres.config'
 query_helper = DataUtil(postgres_config_infile)
 
+
 @cache.memoize(timeout=TIMEOUT)
 def update():
     signames_ecg, signals = query_helper.getLastestECGSamples(10)
     signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
     return signames_ecg, signals, signames_hr, hrvariability, latesthr
+
 
 @app.callback(
     Output('hr-output', 'children'),
@@ -54,7 +53,7 @@ def get_hr_graph():
             ],
             'layout': {
                 'title': signame + ' hr',
-                'xaxis': {'title':'time'},
+                'xaxis': {'title': 'time'},
                 'yaxis': {'title': 'HR (beats/min'}
             }
         }) for signame in signames_hr])
@@ -87,12 +86,12 @@ def get_ecg_graph():
                          }
                      }
                  ) for title in titles]
-                 +
-                 [html.Div(
-                     style={'justify-content': 'center', 'display': 'flex',
-                            'align-items': 'center', 'width': '10vh', 'font-size': '30pt'},
-                     children=['{}'.format(latesthr[signame][0])])
-                 ]
+                          +
+                          [html.Div(
+                              style={'justify-content': 'center', 'display': 'flex',
+                                     'align-items': 'center', 'width': '10vh', 'font-size': '30pt'},
+                              children=['{}'.format(latesthr[signame][0])])
+                          ]
                  ) for signame in signames_ecg])
 
 
@@ -111,9 +110,8 @@ app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
                               'textAlign': 'left',
                               'fontSize': '12pt'
                           }),
-                          dcc.Interval(id='refresh', interval=2*1000)])
+                          dcc.Interval(id='refresh', interval=2 * 1000)])
 
 if __name__ == '__main__':
     # Run with sudo python app.py since using privileged port.
     app.run_server(host='0.0.0.0', port=80)
-

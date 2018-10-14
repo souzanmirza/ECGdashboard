@@ -18,7 +18,8 @@ class SparkConsumer:
     Class for spark consumer reading from kafka topic which contains the ecg timeseries data.
     """
 
-    def __init__(self, kafka_config_infile, ecg_spark_config_infile, postgres_config_infile, s3bucket_config_infile, batch_interval):
+    def __init__(self, kafka_config_infile, ecg_spark_config_infile, postgres_config_infile, s3bucket_config_infile,
+                 batch_interval):
         if not os.path.exists('./tmp'):
             os.makedirs('./tmp')
         logging.basicConfig(level=logging.DEBUG,

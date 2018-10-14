@@ -1,5 +1,6 @@
 import sys
 import os
+
 sys.path.append('../python/')
 import time
 import logging
@@ -7,7 +8,6 @@ import pandas as pd
 import numpy as np
 import psycopg2
 import helpers
-
 
 
 class DataUtil:
