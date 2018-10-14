@@ -11,8 +11,8 @@ from StringIO import StringIO
 sys.path.append('../../python/')
 import helpers
 
-s3bucket_config_infile = 's3bucket.config'
-postgres_config_infile = 'postgres.config'
+s3bucket_config_infile = '../../../.config/s3bucket.config'
+postgres_config_infile = '../../../.config/postgres.config'
 
 s3bucket_config = helpers.parse_config(s3bucket_config_infile)
 postgres_config = helpers.parse_config(postgres_config_infile)
@@ -71,15 +71,15 @@ def dropOldChunks():
 
 
 default_args = {
-    'owner': 'me',
-    'start_date': datetime(2018, 10, 12),
-    'catchup' : False
+    'owner': 'souzan',
+    'start_date': datetime(2018, 10, 12)
 }
 
 # Setting up DAG
 with DAG('maintain_database',
          default_args=default_args,
-         schedule_interval=timedelta(minutes=5)
+         schedule_interval=timedelta(minutes=5),
+         catchup=False,
          ) as dag:
     dumpToS3 = PythonOperator(task_id='dumpToS3',
                               python_callable=dumpToS3)
