@@ -81,8 +81,23 @@ wait
 
 peg fetch website
 
-peg install websitessh
+peg install website ssh
 peg install website aws
 peg install website environment
 
 peg sshcmd-cluster website "pip install psycopg2 numpy dash==0.28.1 dash-html-components==0.13.2 dash-core-components==0.30.2"
+
+#############################################################
+
+peg up yml/database.yml &
+
+wait
+
+peg fetch database
+
+peg install database ssh
+peg install database aws
+peg install database environment
+
+peg sshcmd-cluster database "pip install psycopg2 boto3 airflow"
+
