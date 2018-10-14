@@ -6,19 +6,34 @@ from dash.dependencies import Output, Event
 import dash_html_components as html
 from data_util import DataUtil
 import flask
+from flask_caching import Cache
 
 # TODO: Add HR number display to ecg graph tab. Or add it to HR variability tab.
 # TODO: Deploy with app with Heroku.
 
+
+
+
 # Setup flask server
 server = flask.Flask(__name__)
 app = dash.Dash(__name__, server=server)
+cache = Cache(app.server, config={
+    'CACHE_TYPE': 'filesystem',
+    'CACHE_DIR': 'cache-directory'
+})
+TIMEOUT = 2
+
 app.config['suppress_callback_exceptions'] = True
 
 # Connect query object to database
 postgres_config_infile = '../../.config/postgres.config'
 query_helper = DataUtil(postgres_config_infile)
 
+@cache.memoize(timeout=TIMEOUT)
+def update():
+    signames_ecg, signals = query_helper.getLastestECGSamples(10)
+    signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
+    return signames_ecg, signals, signames_hr, hrvariability, latesthr
 
 @app.callback(
     Output('hr-output', 'children'),
@@ -27,7 +42,7 @@ def get_hr_graph():
     """
     Plots heart rate variability for each patient input.
     """
-    signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
+    signames_ecg, signals, signames_hr, hrvariability, latesthr = update()
     return html.Div(style={'height': '30vh'}, className='hr', children=[dcc.Graph(
         id='hr-' + signame,
         style={'width': '100%'},
@@ -52,9 +67,8 @@ def get_ecg_graph():
     """
     Plots ECG signals for each patient input.
     """
-    signames_ecg, signals = query_helper.getLastestECGSamples(10)
-    signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
     titles = ['ecg1', 'ecg2', 'ecg3']
+    signames_ecg, signals, signames_hr, hrvariability, latesthr = update()
     return html.Div(className='ecg', children=[
         html.Div(style={'display': 'flex', 'height': '30vh', 'border-top': '1px solid grey'},
                  children=[dcc.Graph(
@@ -97,8 +111,9 @@ app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
                               'textAlign': 'left',
                               'fontSize': '12pt'
                           }),
-                          dcc.Interval(id='refresh', interval=1000)])
+                          dcc.Interval(id='refresh', interval=2*1000)])
 
 if __name__ == '__main__':
     # Run with sudo python app.py since using privileged port.
     app.run_server(host='0.0.0.0', port=80)
+
