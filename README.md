@@ -37,6 +37,8 @@ My pipeline loads in ECG timeseries data from an S3 bucket which contains separa
 ### Setup
 * To setup clusters run setup/setup_cluster.sh.
 * To setup database follow setup/db_setup.txt.
+* To setup the airflow job follow setup/run_airflow.txt
+* To start the pipeline follow the instructions in src/README.md 
 
 ### Cluster Configuration
 * four m4.large EC2 instances for Kafka producers
