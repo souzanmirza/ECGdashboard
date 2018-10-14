@@ -41,7 +41,7 @@ def dump_to_s3():
     cur = conn.cursor()
 
     sqlcmd = "SELECT * FROM signal_samples \
-                       WHERE signame='sig1' ORDER BY time;"
+                       ORDER BY time;"
     cur.execute(sqlcmd)
     df = pd.DataFrame(cur.fetchall(), columns=schema)
     cur.close()
@@ -58,7 +58,7 @@ def dump_to_s3():
 def drop_old_chunks():
     conn = connectToDB(postgres_config)
     cur = conn.cursor()
-    sqlcmd = "SELECT drop_chunks(interval '5 minutes', 'signal_samples');"
+    sqlcmd = "SELECT drop_chunks(interval '30 seconds', 'signal_samples');"
     cur.execute(sqlcmd)
     conn.commit()
     cur.close()
@@ -67,8 +67,7 @@ def drop_old_chunks():
 
 default_args = {
     'owner': 'me',
-    'start_date': datetime.now(),
-    'max_active_runs':1,
+    'start_date': datetime(2018,10,12),
 }
 
 
@@ -84,5 +83,5 @@ with DAG('maintain_database',
     drop_old_chunks = PythonOperator(task_id='drop_old_chunks',
                                  python_callable=drop_old_chunks)
 
-dump_to_s3
+dump_to_s3 >> sleep > drop_old_chunks
 
