@@ -6,7 +6,6 @@ from airflow.operators.bash_operator import BashOperator
 import psycopg2
 import pandas as pd
 import boto3
-import gzip
 from StringIO import StringIO
 
 sys.path.append('../../python/')
