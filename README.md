@@ -6,10 +6,7 @@ My project aims to:
 2. Index and store raw physiological signals for downstream analysis. 
 
 ### Description
-Hospital collect and process a lot of signals and are now moving towards storing them. 
-My project is to process and display ECG signals in near real time from patients. 
-These ECG signals are processed every minute to analyze the beat-to-beat heart rate (HR) of each patient in the hospital. 
-These signals are also indexed and stored for use as inputs when developing machine learning models to predict adverse physiological events to improve patient care
+Hospitals collect and process a lot of signals and are now moving towards storing them. My project aims to process and display ECG signals in near real time from patients. These ECG signals are processed every minute to analyze the beat-to-beat heart rate (HR) of each patient in the hospital. These signals are also indexed and stored for use as inputs when developing machine learning models to predict adverse physiological events to improve patient care.
 <p align="center">
 <img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/ecgsignals.jpg" width="600", height="400">
 </p>
