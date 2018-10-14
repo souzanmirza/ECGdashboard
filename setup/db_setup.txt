@@ -15,9 +15,16 @@ sudo apt install timescaledb-postgresql-9.6"
 
 In /etc/postgresql/9.6/main/postgresql.conf add:
 shared_preload_libraries = 'timescaledb'
-sudo service postgresql restart
+listen_addresses = '*'
+
+In /etc/postgresql/9.6/main/pg_hba.conf set:
+# IPv4 local connections:
+host    all             all             0.0.0.0/0            md5
+# IPv6 local connections:
+host    all             all             ::/0                 md5
 
 Create super-user.
+sudo service postgresql restart
 sudo -u postgres createuser --interactive
 [ecg]
 [y]
