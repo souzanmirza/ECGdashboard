@@ -50,12 +50,14 @@ def get_hr_graph():
             'data': [
                 {'x': np.array(hrvariability[signame])[:, 0],
                  'y': np.array(hrvariability[signame])[:, 1],
-                 'type': 'line', 'name': signame}
+                 'mode': 'line', 'name': signame, 'line':{'color':'rgb(0,0,255)'}}
             ],
             'layout': {
+                'font': {'color': '#fff'},
                 'title': signame + ' hr',
-                'xaxis': {'title': 'time'},
-                'yaxis': {'title': 'HR (beats/min'}
+                'xaxis': {'title': 'time', 'color': '#fff', 'showgrid': 'False'},
+                'yaxis': {'title': 'HR (beats/min', 'color': '#fff', 'showgrid': 'False'},
+                'paper_bgcolor': '#000', 'plot_bgcolor': '#000'
             }
         }) for signame in signames_hr])
 
@@ -68,7 +70,7 @@ def get_ecg_graph():
     Plots ECG signals for each patient input.
     """
     titles = ['ecg1', 'ecg2', 'ecg3']
-    colors = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)']
+    colors = ['rgb(240,0,0)', 'rgb(0,240,0)', 'rgb(0,0,240)']
     signames_ecg, signals, signames_hr, hrvariability, latesthr = update()
     return html.Div(className='ecg', children=[
         html.Div(style={'display': 'flex', 'height': '40vh'},
@@ -86,8 +88,7 @@ def get_ecg_graph():
                              'title': '{}-{}'.format(signame, titles[i]),
                              'xaxis': {'title': 'time', 'color': '#fff', 'showgrid': 'False'},
                              'yaxis': {'title': 'voltage (mv)', 'color': '#fff', 'showgrid': 'False', 'range': np.linspace(-2.5, 2.5, 10)},
-                             'paper_bgcolor':'#000', 'plot_bgcolor':'#000',
-                           
+                             'paper_bgcolor':'#000', 'plot_bgcolor':'#000'
                          }
                      }
                  ) for i in range(len(titles))]
@@ -106,17 +107,19 @@ app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
                       children=[
                           html.H1(children='ECGdashboard For Monitored Patients', style={'margin-top':'0'}),
                           dcc.Tabs(className="tabs", children=[
-                              dcc.Tab(label='ECG Signals', children=html.Div(id='ecg-output')),
-                              dcc.Tab(label='HR Variability', children=html.Div(id='hr-output'))
+                              dcc.Tab(label='ECG Signals', style={'backgroundColor':'black',
+                              'color':'white'}, children=html.Div(id='ecg-output')),
+                              dcc.Tab(label='HR Variability', style={'backgroundColor':'black',
+                              'color':'white'}, children=html.Div(id='hr-output'))
                           ], style={
                               'width': '50vh',
                               'textAlign': 'left',
                               'fontSize': '12pt',
-                              'backgroundColor':'black'
                           }),
                           dcc.Interval(id='refresh', interval=2 * 1000)])
 
 if __name__ == '__main__':
     # Run with sudo python app.py since using privileged port.
     app.run_server(debug=True,host='0.0.0.0', port=80)
+
 
