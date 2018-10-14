@@ -1,4 +1,4 @@
-#TODO: Amend Kafka setup now using confluent-kafka. Also this setup does not work.
+#TODO: Amend Kafka setup using confluent-kafka.
 
 peg up yml/kafkamaster.yml &
 peg up yml/kafkaworkers.yml &
@@ -85,7 +85,7 @@ peg install website ssh
 peg install website aws
 peg install website environment
 
-peg sshcmd-cluster website "pip install psycopg2 numpy dash==0.28.1 dash-html-components==0.13.2 dash-core-components==0.30.2"
+peg sshcmd-cluster website "pip install psycopg2 numpy pandas dash==0.28.1 dash-html-components==0.13.2 dash-core-components==0.30.2"
 
 #############################################################
 
@@ -99,5 +99,5 @@ peg install database ssh
 peg install database aws
 peg install database environment
 
-peg sshcmd-cluster database "pip install psycopg2 boto3 airflow"
+peg sshcmd-cluster database "pip install psycopg2 boto3 airflow pandas"
 
