@@ -27,21 +27,20 @@ My pipeline loads in ECG timeseries data from an S3 bucket which contains separa
 
 ### Architecture
 <p align="center">
-<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline%20(5).png" width="700", height="400">
+<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/pipeline.png" width="700", height="400">
 </p>
 
 ## Setting up AWS clusters
 ### Requirements 
 * [peg](https://github.com/InsightDataScience/pegasus)
-* [confluent-kafka](https://docs.confluent.io/current/installation/installing_cp/zip-tar.html#prod-kafka-cli-install)
 
 ### Setup
-* To setup clusters run setup/setup_cluster.sh
-* To setup database follow setup/db_setup.txt. Once setup, build tables using sql commands in setup/tables.sql
+* To setup clusters run setup/setup_cluster.sh.
+* To setup database follow setup/db_setup.txt.
 
 ### Cluster Configuration
 * four m4.large EC2 instances for Kafka producers
 * four m4.large EC2 instances for Spark Streaming (2s mini-batch) which writes to postgres database
 * four m4.large EC2 instances for Spark Streaming (60s mini-batch) which calculates heart rate over 60s period
-* one t2.micro RDS instance for PostgreSQL database
+* one m4.large EC2 instance for TimescaleDB/PostgreSQL database
 * one t2.micro EC2 instance for Dash app
