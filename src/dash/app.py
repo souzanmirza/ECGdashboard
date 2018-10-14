@@ -18,7 +18,7 @@ cache = Cache(app.server, config={
     'CACHE_TYPE': 'filesystem',
     'CACHE_DIR': 'cache-directory'
 })
-TIMEOUT = 2
+TIMEOUT = 0
 
 app.config['suppress_callback_exceptions'] = True
 
@@ -72,7 +72,7 @@ def get_ecg_graph():
         html.Div(style={'display': 'flex', 'height': '30vh', 'border-top': '1px solid grey'},
                  children=[dcc.Graph(
                      id=title + signame,
-                     style={'width': '100%'},
+                     style={'width': '100%', 'backgroundColor':'black', 'fontColor':'white'},
                      figure={
                          'data': [
                              {'x': signals[signame]['time'],
@@ -82,7 +82,9 @@ def get_ecg_graph():
                          'layout': {
                              'title': '{}-{}'.format(signame, title),
                              'xaxis': {'title': 'time'},
-                             'yaxis': {'title': 'voltage (mv)', 'range': np.linspace(-2.5, 2.5, 10)}
+                             'yaxis': {'title': 'voltage (mv)', 'range': np.linspace(-2.5, 2.5, 10)},
+                             'paper_bgcolor':'#000', 'plot_bgcolor':'#000',
+                             #'line':{'color':'#ff0000'}
                          }
                      }
                  ) for title in titles]
@@ -97,7 +99,7 @@ def get_ecg_graph():
 
 # app layout with separate tabs for ECG and HR graphs.
 app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
-                                                   'margin-top': 'auto'},
+                                                   'margin-top': 'auto', 'backgroundColor':'black', 'fontColor': 'white'},
                       children=[
                           html.H1(children='ECGdashboard For Monitored Patients'),
                           dcc.Tabs(className="tabs", children=[
@@ -108,10 +110,12 @@ app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
                               'border-style': 'solid',
                               'border-color': 'thin lightgrey solid',
                               'textAlign': 'left',
-                              'fontSize': '12pt'
+                              'fontSize': '12pt',
+                              'backgroundColor':'black'
                           }),
                           dcc.Interval(id='refresh', interval=2 * 1000)])
 
 if __name__ == '__main__':
     # Run with sudo python app.py since using privileged port.
-    app.run_server(host='0.0.0.0', port=80)
+    app.run_server(debug=True,host='0.0.0.0', port=80)
+
