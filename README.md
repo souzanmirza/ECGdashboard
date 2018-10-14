@@ -24,7 +24,7 @@ My pipeline loads in ECG timeseries data from an S3 bucket which contains separa
 
 ### Front-End Views
 <p align="center">
-<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/dashboard_ecg_v2.PNG">
+<img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/dashboard_ecg_v3.PNG">
 <img src="https://github.com/souzanmirza/ECGdashboard/blob/master/docs/dashboard_hr_v2.PNG">
 </p>
 
