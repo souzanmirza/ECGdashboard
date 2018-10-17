@@ -27,12 +27,13 @@ app.config['suppress_callback_exceptions'] = True
 postgres_config_infile = '../../.config/postgres.config'
 query_helper = DataUtil(postgres_config_infile)
 
+queries={'signames_ecg':[], 'signals':[], 'signames_hr':[], 'hrvariability':[], 'latesthr':[]}
 
 @cache.memoize(timeout=TIMEOUT)
 def update():
-    signames_ecg, signals = query_helper.getLastestECGSamples(10)
-    signames_hr, hrvariability, latesthr = query_helper.getHRSamples()
-    return signames_ecg, signals, signames_hr, hrvariability, latesthr
+    queries['signames_ecg'], queries['signals'] = query_helper.getLastestECGSamples(10)
+    queries['signames_hr'], queries['hrvariability'], queries['latesthr'] = query_helper.getHRSamples()
+    # return (signames_ecg, signals, signames_hr, hrvariability, latesthr)
 
 
 @app.callback(
@@ -42,7 +43,8 @@ def get_hr_graph():
     """
     Plots heart rate variability for each patient input.
     """
-    signames_ecg, signals, signames_hr, hrvariability, latesthr = update()
+    signames_hr = queries['signames_hr']
+    hrvariability = queries['hrvariability']
     return html.Div(style={'height': '30vh'}, className='hr', children=[dcc.Graph(
         id='hr-' + signame,
         style={'width': '100%'},
@@ -71,7 +73,10 @@ def get_ecg_graph():
     """
     titles = ['ecg1', 'ecg2', 'ecg3']
     colors = ['rgb(240,0,0)', 'rgb(0,240,0)', 'rgb(0,0,240)']
-    signames_ecg, signals, signames_hr, hrvariability, latesthr = update()
+    update()
+    signames_ecg = queries['signames_ecg']
+    signals = queries['signals']
+    latesthr = queries['latesthr']
     return html.Div(className='ecg', children=[
         html.Div(style={'display': 'flex', 'height': '40vh'},
                  children=[dcc.Graph(
@@ -121,5 +126,6 @@ app.layout = html.Div(className='main-app', style={'fontFamily': 'Sans-Serif',
 if __name__ == '__main__':
     # Run with sudo python app.py since using privileged port.
     app.run_server(host='0.0.0.0', port=80)
+
 
 
