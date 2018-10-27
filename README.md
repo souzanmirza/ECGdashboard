@@ -56,5 +56,5 @@ My pipeline loads in ECG timeseries data from an S3 bucket which contains separa
 
 ## Links
 * [ECGdashboard](http://ecgdashboard.life)
-* [Slideshow](https://www.slideshare.net/SouzanMirza/ecgdashboard-insight-fellowship-project-120074512)
+* [Slideshow](https://www.slideshare.net/SouzanMirza/ecgdashboard-insight-fellowship-project-120943085)
 * [Demo Video](https://youtu.be/801_PMN0ag0)
